@@ -18,8 +18,9 @@ package com.google.security.wycheproof;
 
 import com.google.security.wycheproof.WycheproofRunner.ProviderType;
 import com.google.security.wycheproof.WycheproofRunner.SlowTest;
-import java.lang.management.ManagementFactory;
-import java.lang.management.ThreadMXBean;
+// Android-removed: Android doesn't support JMX
+// import java.lang.management.ManagementFactory;
+// import java.lang.management.ThreadMXBean;
 import java.math.BigInteger;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyFactory;
@@ -811,6 +812,8 @@ public class EcdsaTest extends TestCase {
   // precomputation seems much easier than analyzing this.)
   public void testTiming(String algorithm, String curve, ECParameterSpec ecParams)
       throws Exception {
+    // BEGIN Android-removed: Android doesn't support JMX
+    /*
     ThreadMXBean bean = ManagementFactory.getThreadMXBean();
     if (!bean.isCurrentThreadCpuTimeSupported()) {
       System.out.println("getCurrentThreadCpuTime is not supported. Skipping");
@@ -885,6 +888,8 @@ public class EcdsaTest extends TestCase {
     if (maxSigma >= 7) {
       fail("Signatures with short timing have a biased k");
     }
+    */
+    // END Android-removed: Android doesn't support JMX
   }
 
   @SlowTest(providers = {ProviderType.BOUNCY_CASTLE, ProviderType.CONSCRYPT, ProviderType.OPENJDK,
