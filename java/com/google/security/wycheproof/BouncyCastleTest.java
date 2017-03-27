@@ -19,7 +19,8 @@ package com.google.security.wycheproof;
 import com.google.security.wycheproof.WycheproofRunner.Fast;
 import com.google.security.wycheproof.WycheproofRunner.Provider;
 import com.google.security.wycheproof.WycheproofRunner.ProviderType;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
+// Android-changed: Update import to account for jarjar
+import com.android.org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.junit.BeforeClass;
 import org.junit.runner.RunWith;
 import org.junit.runners.Suite.SuiteClasses;
