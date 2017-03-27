@@ -23,7 +23,7 @@ LOCAL_MODULE := wycheproof
 LOCAL_MODULE_TAGS := optional
 LOCAL_NO_STANDARD_LIBRARIES := true
 LOCAL_SRC_FILES := $(supported_wycheproof_files)
-LOCAL_JAVA_LIBRARIES := core-oj core-libart conscrypt-nojarjar bouncycastle-nojarjar junit
+LOCAL_JAVA_LIBRARIES := core-oj core-libart conscrypt bouncycastle junit
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
 all_wycheproof_files :=
