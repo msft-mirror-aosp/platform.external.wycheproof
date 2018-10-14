@@ -21,10 +21,13 @@ java_library_static {
         "java/com/google/security/wycheproof/SpongyCastleTest.java",
         "java/com/google/security/wycheproof/SpongyCastleAllTests.java",
     ],
-    no_framework_libs: true,
+    no_standard_libs: true,
     libs: [
-        "conscrypt",
+        "core-oj",
+        "core-libart",
         "bouncycastle",
+        "conscrypt",
         "junit",
     ],
+    system_modules: "core-system-modules",
 }
