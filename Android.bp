@@ -21,7 +21,7 @@ java_library_static {
         "java/com/google/security/wycheproof/SpongyCastleTest.java",
         "java/com/google/security/wycheproof/SpongyCastleAllTests.java",
     ],
-    no_standard_libs: true,
+    sdk_version: "none",
     libs: [
         "core-oj",
         "core-libart",
