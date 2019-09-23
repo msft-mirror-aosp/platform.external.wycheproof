@@ -30,12 +30,8 @@ java_library_static {
         "java/com/google/security/wycheproof/SpongyCastleAllTests.java",
     ],
     sdk_version: "none",
+    system_modules: "core-system-modules",
     libs: [
-        "core-oj",
-        "core-libart",
-        "bouncycastle",
-        "conscrypt",
         "junit",
     ],
-    system_modules: "core-system-modules",
 }
