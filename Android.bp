@@ -14,25 +14,20 @@
 // limitations under the License.
 //
 
-package {
-    default_visibility: ["//visibility:private"],
-}
-
 java_library_static {
     name: "wycheproof",
-    visibility: [
-        "//cts/tests/libcore/wycheproof",
-        "//cts/tests/libcore/wycheproof-bc",
-    ],
     srcs: ["java/**/*.java"],
     exclude_srcs: [
         "java/com/google/security/wycheproof/SpongyCastleTest.java",
         "java/com/google/security/wycheproof/SpongyCastleAllTests.java",
     ],
-    sdk_version: "none",
-    system_modules: "art-module-platform-api-stubs-system-modules",
+    no_standard_libs: true,
     libs: [
-        "conscrypt.module.platform.api.stubs",
+        "core-oj",
+        "core-libart",
+        "bouncycastle",
+        "conscrypt",
         "junit",
     ],
+    system_modules: "core-system-modules",
 }
