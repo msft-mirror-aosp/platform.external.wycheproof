@@ -21,8 +21,6 @@
 
 package com.google.security.wycheproof;
 
-import com.google.security.wycheproof.WycheproofRunner.ExcludedTest;
-import com.google.security.wycheproof.WycheproofRunner.ProviderType;
 import java.math.BigInteger;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyFactory;
@@ -129,9 +127,6 @@ public class EcKeyTest extends TestCase {
         + "8c0b49bbb85c3303ddb1553c3b761c2caacca71606ba9ebac8",
   };
 
-  @ExcludedTest(
-      providers = {ProviderType.BOUNCY_CASTLE},
-      comment = "KeyFactory.EC is removed")
   public void testEncodedPublicKey() throws Exception {
     KeyFactory kf = KeyFactory.getInstance("EC");
     for (String encodedHex : EC_INVALID_PUBLIC_KEYS) {
@@ -147,9 +142,6 @@ public class EcKeyTest extends TestCase {
     }
   }
 
-  @ExcludedTest(
-      providers = {ProviderType.BOUNCY_CASTLE},
-      comment = "KeyPairGenerator.EC is removed")
   public void testEncodedPrivateKey() throws Exception {
     KeyPairGenerator keyGen = KeyPairGenerator.getInstance("EC");
     keyGen.initialize(EcUtil.getNistP256Params());
@@ -193,9 +185,6 @@ public class EcKeyTest extends TestCase {
     // TODO(bleichen): use RandomUtil
   }
 
-  @ExcludedTest(
-      providers = {ProviderType.BOUNCY_CASTLE},
-      comment = "KeyPairGenerator.EC is removed")
   public void testKeyGenerationAll() throws Exception {
     testKeyGeneration(EcUtil.getNistP224Params(), true);
     testKeyGeneration(EcUtil.getNistP256Params(), true);
@@ -213,9 +202,6 @@ public class EcKeyTest extends TestCase {
    * Nist recommends a minimal security strength of 112 bits for the time until 2030.
    * To achieve this security strength EC keys of at least 224 bits are required.
    */
-  @ExcludedTest(
-      providers = {ProviderType.BOUNCY_CASTLE},
-      comment = "KeyPairGenerator.EC is removed")
   public void testDefaultKeyGeneration() throws Exception {
     KeyPairGenerator keyGen = KeyPairGenerator.getInstance("EC");
     KeyPair keyPair = keyGen.generateKeyPair();
