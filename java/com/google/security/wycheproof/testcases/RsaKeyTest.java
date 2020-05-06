@@ -16,8 +16,6 @@
 
 package com.google.security.wycheproof;
 
-import com.google.security.wycheproof.WycheproofRunner.ExcludedTest;
-import com.google.security.wycheproof.WycheproofRunner.ProviderType;
 import java.math.BigInteger;
 import java.security.KeyFactory;
 import java.security.KeyPair;
@@ -1456,9 +1454,6 @@ public class RsaKeyTest extends TestCase {
     checkKeyPair(keypair, keySizeInBits);
   }
 
-  @ExcludedTest(
-      providers = {ProviderType.BOUNCY_CASTLE},
-      comment = "KeyPairGenerator.RSA is removed")
   public void testKeyGeneration() throws Exception {
     testKeyGenerationSize(1024);
     testKeyGenerationSize(2048);
@@ -1471,9 +1466,6 @@ public class RsaKeyTest extends TestCase {
    * Such a failure does not need to be a bug, since several encoding for the same key are
    * possible.
    */
-  @ExcludedTest(
-      providers = {ProviderType.BOUNCY_CASTLE},
-      comment = "KeyFactory.RSA is removed")
   public void testEncodeDecodePublic() throws Exception {
     KeyFactory kf = KeyFactory.getInstance("RSA");
     byte[] encoded = TestUtil.hexToBytes(ENCODED_PUBLIC_KEY);
@@ -1491,9 +1483,6 @@ public class RsaKeyTest extends TestCase {
    * This test has mostly "defense in depth" characteristic, since applications should
    * never accept unauthenticated public keys.
    */
-  @ExcludedTest(
-      providers = {ProviderType.BOUNCY_CASTLE},
-      comment = "KeyFactory.RSA is removed")
   public void testModifiedPublicKeyDecoding() throws Exception {
     KeyFactory kf = KeyFactory.getInstance("RSA");
     int cnt = 0;

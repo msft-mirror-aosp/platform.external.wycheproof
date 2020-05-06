@@ -38,7 +38,13 @@ import org.junit.runners.Suite.SuiteClasses;
   DhTest.class,
   DhiesTest.class,
   DsaTest.class,
+  EcKeyTest.class,
+  EcdhTest.class,
+  EcdsaTest.class,
   EciesTest.class,
+  RsaEncryptionTest.class,
+  RsaKeyTest.class,
+  RsaSignatureTest.class,
 })
 @Provider(ProviderType.BOUNCY_CASTLE)
 @Fast
