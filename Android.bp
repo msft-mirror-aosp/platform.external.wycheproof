@@ -29,9 +29,9 @@ java_library_static {
         "java/com/google/security/wycheproof/SpongyCastleTest.java",
         "java/com/google/security/wycheproof/SpongyCastleAllTests.java",
     ],
-    sdk_version: "none",
-    system_modules: "legacy-art-module-platform-api-stubs-system-modules",
+    sdk_version: "current",
     libs: [
+        "bouncycastle-repackaged-unbundled",
         "conscrypt.module.platform.api",
         "junit",
     ],
