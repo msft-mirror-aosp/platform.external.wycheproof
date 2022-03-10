@@ -50,3 +50,17 @@ java_library_static {
         "junit",
     ],
 }
+
+java_library_static {
+    name: "wycheproof-keystore",
+    visibility: [
+        "//cts/tests/tests/keystore",
+    ],
+    srcs: ["keystore-cts-src/**/*.java"],
+    sdk_version: "current",
+    libs: [
+        "bouncycastle-unbundled",
+        "bouncycastle-bcpkix-unbundled",
+        "junit",
+    ],
+}
