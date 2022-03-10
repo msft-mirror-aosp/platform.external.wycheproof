@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package android.keystore.cts.wycheproof;
+package com.google.security.wycheproof;
 
 import java.nio.ByteBuffer;
 import java.security.Provider;
@@ -19,6 +19,8 @@ import java.security.Security;
 
 /** Test utilities */
 public class TestUtil {
+  public static final String EXPECTED_PROVIDER_NAME = "AndroidKeyStore";
+  public static final String EXPECTED_CRYPTO_OP_PROVIDER_NAME = "AndroidKeyStoreBCWorkaround";
 
   public static String bytesToHex(byte[] bytes) {
     // bytesToHex is used to convert output from Cipher.
