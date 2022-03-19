@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package android.keystore.cts.wycheproof;
+package com.google.security.wycheproof;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -52,7 +52,7 @@ import java.security.UnrecoverableKeyException;
  * <p>Other tests using AES-GCM are: CipherInputStreamTest.java CipherOutputStreamTest.java
  */
 public class AesGcmTest {
-  private static final String EXPECTED_PROVIDER_NAME = "AndroidKeyStoreBCWorkaround";
+  private static final String EXPECTED_PROVIDER_NAME = TestUtil.EXPECTED_CRYPTO_OP_PROVIDER_NAME;
   private KeyStore keyStore;
 
   @Before
