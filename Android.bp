@@ -40,8 +40,8 @@ java_library_static {
     ],
     srcs: ["java/**/*.java"],
     exclude_srcs: [
-        "java/com/google/security/wycheproof/SpongyCastleTest.java",
         "java/com/google/security/wycheproof/SpongyCastleAllTests.java",
+        "java/com/google/security/wycheproof/SpongyCastleTest.java",
     ],
     sdk_version: "current",
     libs: [
@@ -56,11 +56,19 @@ java_library_static {
     visibility: [
         "//cts/tests/tests/keystore",
     ],
-    srcs: ["keystore-cts-src/**/*.java"],
+    srcs: ["keystore-cts/java/**/*.java"],
+    java_resource_dirs: ["keystore-cts/testvectors"],
     sdk_version: "current",
     libs: [
-        "bouncycastle-unbundled",
         "bouncycastle-bcpkix-unbundled",
+        "bouncycastle-unbundled",
         "junit",
+        "wycheproof-gson",
     ],
+}
+
+java_import {
+    name: "wycheproof-gson",
+    visibility: ["//cts/tests/tests/keystore"],
+    jars: ["keystore-cts/libs/gson-2.9.0.jar"],
 }
