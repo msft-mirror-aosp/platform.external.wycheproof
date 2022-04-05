@@ -12,9 +12,12 @@
 package com.google.security.wycheproof;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import java.security.Key;
+import java.security.KeyStore;
 import java.security.GeneralSecurityException;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.NoSuchAlgorithmException;
@@ -23,13 +26,23 @@ import java.util.Locale;
 import javax.crypto.Mac;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+import org.junit.After;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import org.junit.Ignore;
+import android.security.keystore.KeyProtection;
+import android.security.keystore.KeyProperties;
+import java.io.IOException;
+import android.keystore.cts.util.KeyStoreUtil;
 
 /** This test uses test vectors in JSON format to test MAC primitives. */
-@RunWith(JUnit4.class)
 public class JsonMacTest {
+  private static final String EXPECTED_PROVIDER_NAME = TestUtil.EXPECTED_CRYPTO_OP_PROVIDER_NAME;
+  private static final String KEY_ALIAS_1 = "Key1";
+
+  @After
+  public void tearDown() throws Exception {
+    KeyStoreUtil.cleanUpKeyStore();
+  }
 
   /** Convenience method to get a byte array from an JsonObject */
   protected static byte[] getBytes(JsonObject obj, String name) throws Exception {
@@ -60,8 +73,8 @@ public class JsonMacTest {
    *     bits, since the JCE interface does not seem to support such a specification.
    */
   protected static byte[] computeMac(String algorithm, byte[] key, byte[] msg, int tagSize)
-      throws GeneralSecurityException {
-    Mac mac = Mac.getInstance(algorithm);
+      throws Exception {
+    Mac mac = Mac.getInstance(algorithm, EXPECTED_PROVIDER_NAME);
     algorithm = algorithm.toUpperCase(Locale.ENGLISH);
     if (algorithm.startsWith("HMAC")) {
       SecretKeySpec keySpec = new SecretKeySpec(key, algorithm);
@@ -77,7 +90,11 @@ public class JsonMacTest {
       //   But this class is often not supported. Hence the computation here, just computes a
       //   full length tag and truncates it. The drawback of having to truncate tags is that
       //   the caller has to compare truncated tags during verification.
-      mac.init(keySpec);
+      KeyStore keyStore = KeyStoreUtil.saveSecretKeyToKeystore(KEY_ALIAS_1, keySpec, 
+              new KeyProtection.Builder(KeyProperties.PURPOSE_SIGN).build());
+      // Key imported, obtain a reference to it.
+      Key keyStoreKey = keyStore.getKey(KEY_ALIAS_1, null);
+      mac.init(keyStoreKey);
       mac.update(msg);
       byte[] tag = mac.doFinal();
       return Arrays.copyOf(tag, tagSize / 8);
@@ -94,14 +111,9 @@ public class JsonMacTest {
    */
   public void testMac(String filename) throws Exception {
     // Checking preconditions.
-    JsonObject test = JsonUtil.getTestVectors(filename);
+    JsonObject test = JsonUtil.getTestVectors(this.getClass(), filename);
     String algorithm = test.get("algorithm").getAsString();
-    try {
-      Mac.getInstance(algorithm);
-    } catch (NoSuchAlgorithmException ex) {
-      System.out.println("Algorithm is not supported. Skipping test for " + algorithm);
-      return;
-    }
+    Mac.getInstance(algorithm, EXPECTED_PROVIDER_NAME);
 
     int numTests = test.get("numberOfTests").getAsInt();
     int cntTests = 0;
@@ -125,16 +137,7 @@ public class JsonMacTest {
         String result = testcase.get("result").getAsString();
 
         byte[] computedTag = null;
-        try {
-          computedTag = computeMac(algorithm, key, msg, tagSize);
-        } catch (GeneralSecurityException ex) {
-          // Some libraries restrict key size or tag size. Hence valid MACs might be
-          // rejected.
-          continue;
-        } catch (IllegalArgumentException ex) {
-          // Thrown by javax.crypto.spec.SecretKeySpec (e.g. when the key is empty).
-          continue;
-        }
+        computedTag = computeMac(algorithm, key, msg, tagSize);
 
         boolean eq = arrayEquals(expectedTag, computedTag);
         if (result.equals("invalid")) {
@@ -142,26 +145,17 @@ public class JsonMacTest {
             // Some test vectors use invalid parameters that should be rejected.
             // E.g. an implementation must not allow AES-GMAC with an IV of length 0,
             // since this leaks the authentication key.
-            System.out.println("Computed mac for test case " + tc);
             errors++;
           }
         } else {
           if (eq) {
             passedTests++;
           } else {
-            System.out.println(
-                "Incorrect tag for "
-                    + tc
-                    + " expected:"
-                    + TestUtil.bytesToHex(expectedTag)
-                    + " computed:"
-                    + TestUtil.bytesToHex(computedTag));
             errors++;
           }
         }
       }
     }
-    System.out.println("passed Tests for " + algorithm + ":" + passedTests);
     assertEquals(0, errors);
     assertEquals(numTests, cntTests);
   }
@@ -180,7 +174,7 @@ public class JsonMacTest {
    */
   protected static Mac getInitializedMacWithIv(String algorithm, byte[] key, byte[] iv, int tagSize)
       throws GeneralSecurityException {
-    Mac mac = Mac.getInstance(algorithm);
+    Mac mac = Mac.getInstance(algorithm, EXPECTED_PROVIDER_NAME);
     algorithm = algorithm.toUpperCase(Locale.ENGLISH);
     if (algorithm.equals("AES-GMAC")) {
       SecretKeySpec keySpec = new SecretKeySpec(key, "AES");
@@ -207,14 +201,9 @@ public class JsonMacTest {
    */
   public void testMacWithIv(String filename, String algorithm) throws Exception {
     // Checking preconditions.
-    try {
-      Mac.getInstance(algorithm);
-    } catch (NoSuchAlgorithmException ex) {
-      System.out.println("Algorithm is not supported. Skipping test for " + algorithm);
-      return;
-    }
+    Mac.getInstance(algorithm, EXPECTED_PROVIDER_NAME);
 
-    JsonObject test = JsonUtil.getTestVectors(filename);
+    JsonObject test = JsonUtil.getTestVectors(this.getClass(), filename);
     int numTests = test.get("numberOfTests").getAsInt();
     int cntTests = 0;
     int passedTests = 0;
@@ -237,17 +226,7 @@ public class JsonMacTest {
         // "acceptable" are test vectors with weak parameters or legacy formats.
         String result = testcase.get("result").getAsString();
 
-        Mac mac;
-        try {
-          mac = getInitializedMacWithIv(algorithm, key, iv, tagSize);
-        } catch (GeneralSecurityException ex) {
-          // Some libraries restrict key size, iv size and tag size.
-          // Because of the initialization of the Mac might fail.
-          continue;
-        } catch (IllegalArgumentException ex) {
-          // Thrown by javax.crypto.spec.SecretKeySpec (e.g. when the key is empty).
-          continue;
-        }
+        Mac mac = getInitializedMacWithIv(algorithm, key, iv, tagSize);
 
         byte[] computedTag = mac.doFinal(msg);
         boolean eq = arrayEquals(expectedTag, computedTag);
@@ -256,26 +235,17 @@ public class JsonMacTest {
             // Some test vectors use invalid parameters that should be rejected.
             // E.g. an implementation must not allow AES-GMAC with an IV of length 0,
             // since this leaks the authentication key.
-            System.out.println("Computed mac for test case " + tc);
             errors++;
           }
         } else {
           if (eq) {
             passedTests++;
           } else {
-            System.out.println(
-                "Incorrect tag for "
-                    + tc
-                    + " expected:"
-                    + TestUtil.bytesToHex(expectedTag)
-                    + " computed:"
-                    + TestUtil.bytesToHex(computedTag));
             errors++;
           }
         }
       }
     }
-    System.out.println("passed Tests for " + algorithm + ":" + passedTests);
     assertEquals(0, errors);
     assertEquals(numTests, cntTests);
   }
@@ -306,26 +276,31 @@ public class JsonMacTest {
   }
 
   @Test
+  @Ignore // HMAC Sha3 algorithms are not supported in AndroidKeyStore
   public void testHmacSha3_224() throws Exception {
     testMac("hmac_sha3_224_test.json");
   }
 
   @Test
+  @Ignore // HMAC Sha3 algorithms are not supported in AndroidKeyStore
   public void testHmacSha3_256() throws Exception {
     testMac("hmac_sha3_256_test.json");
   }
 
   @Test
+  @Ignore // HMAC Sha3 algorithms are not supported in AndroidKeyStore
   public void testHmacSha3_384() throws Exception {
     testMac("hmac_sha3_384_test.json");
   }
 
   @Test
+  @Ignore // HMAC Sha3 algorithms are not supported in AndroidKeyStore
   public void testHmacSha3_512() throws Exception {
     testMac("hmac_sha3_512_test.json");
   }
 
   @Test
+  @Ignore // Ignored due to AES-GMAC algorithm not supported in AndroidKeyStore
   public void testAesGmac() throws Exception {
     testMacWithIv("gmac_test.json", "AES-GMAC");
   }
