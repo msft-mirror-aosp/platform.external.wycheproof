@@ -14,12 +14,14 @@
 package com.google.security.wycheproof;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.security.AlgorithmParameters;
 import java.security.GeneralSecurityException;
+import java.security.KeyStore;
 import java.security.NoSuchAlgorithmException;
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
@@ -28,15 +30,23 @@ import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import org.junit.Test;
 import org.junit.Ignore;
+import org.junit.After;
 import android.security.keystore.KeyProtection;
 import android.security.keystore.KeyProperties;
-import java.security.KeyStore;
+import android.keystore.cts.util.KeyStoreUtil;
 
 /** This test uses test vectors in JSON format to test AEAD schemes. */
 public class JsonAeadTest {
 
   private static final String EXPECTED_PROVIDER_NAME = TestUtil.EXPECTED_PROVIDER_NAME;
-  private static final String EXPECTED_CRYPTO_PROVIDER_NAME = TestUtil.EXPECTED_CRYPTO_OP_PROVIDER_NAME;
+  private static final String EXPECTED_CRYPTO_PROVIDER_NAME =
+                                                        TestUtil.EXPECTED_CRYPTO_OP_PROVIDER_NAME;
+  private static final String KEY_ALIAS_1 = "Key1";
+
+  @After
+  public void tearDown() throws Exception {
+    KeyStoreUtil.cleanUpKeyStore();
+  }
 
   /** Joins two bytearrays. */
   protected static byte[] join(byte[] head, byte[] tail) {
@@ -84,19 +94,14 @@ public class JsonAeadTest {
     Cipher cipher = Cipher.getInstance(algorithm, EXPECTED_CRYPTO_PROVIDER_NAME);
     if (algorithm.equalsIgnoreCase("AES/GCM/NoPadding")) {
       SecretKeySpec keySpec = new SecretKeySpec(key, "AES");
-
-      KeyStore keyStore = KeyStore.getInstance(EXPECTED_PROVIDER_NAME);
-      keyStore.load(null);
-      keyStore.setEntry(
-          "key1",
-          new KeyStore.SecretKeyEntry(keySpec),
+      KeyStore keyStore = KeyStoreUtil.saveSecretKeyToKeystore(KEY_ALIAS_1, keySpec,
           new KeyProtection.Builder(KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
                   .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                   .setRandomizedEncryptionRequired(false)
                   .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                   .build());
       // Key imported, obtain a reference to it.
-      SecretKey keyStoreKey = (SecretKey) keyStore.getKey("key1", null);
+      SecretKey keyStoreKey = (SecretKey) keyStore.getKey(KEY_ALIAS_1, null);
 
       AlgorithmParameters params = AlgorithmParameters.getInstance("GCM");
       params.init(new GCMParameterSpec(tagSize, iv));
@@ -162,14 +167,17 @@ public class JsonAeadTest {
     final String expectedVersion = "0.6";
 
     // Checking preconditions.
-    try {
-      Cipher.getInstance(algorithm, EXPECTED_CRYPTO_PROVIDER_NAME);
-    } catch (NoSuchAlgorithmException ex) {
-      throw ex;
-    }
+    Cipher.getInstance(algorithm, EXPECTED_CRYPTO_PROVIDER_NAME);
 
     JsonObject test = JsonUtil.getTestVectors(this.getClass(), filename);
     String generatorVersion = test.get("generatorVersion").getAsString();
+    assertFalse(
+          algorithm
+              + ": expecting test vectors with version "
+              + expectedVersion
+              + " found vectors with version "
+              + generatorVersion,
+          generatorVersion.equals(expectedVersion));
     int numTests = test.get("numberOfTests").getAsInt();
     int cntTests = 0;
     int errors = 0;
