@@ -16,25 +16,27 @@ package com.google.security.wycheproof;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.google.security.wycheproof.WycheproofRunner.ProviderType;
-import com.google.security.wycheproof.WycheproofRunner.SlowTest;
-import java.lang.management.ManagementFactory;
-import java.lang.management.ThreadMXBean;
 import java.math.BigInteger;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.KeyStore;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.Signature;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
 import java.security.spec.ECGenParameterSpec;
 import java.security.spec.ECParameterSpec;
 import java.util.Arrays;
+import org.junit.After;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import org.junit.Ignore;
+import android.security.keystore.KeyProtection;
+import android.security.keystore.KeyProperties;
+import android.keystore.cts.util.KeyStoreUtil;
 
 /**
  * Tests ECDSA signatures.
@@ -44,8 +46,26 @@ import org.junit.runners.JUnit4;
  *
  * @author bleichen@google.com (Daniel Bleichenbacher)
  */
-@RunWith(JUnit4.class)
 public class EcdsaTest {
+  private static final String EXPECTED_PROVIDER_NAME = TestUtil.EXPECTED_CRYPTO_OP_PROVIDER_NAME;
+  private static final String KEY_ALIAS_1 = "TestKey";
+
+  @After
+  public void tearDown() throws Exception {
+    KeyStoreUtil.cleanUpKeyStore();
+  }
+
+  private static PrivateKey getKeystorePrivateKey(PublicKey pubKey, PrivateKey privKey)
+  throws Exception {
+    KeyProtection keyProtection = new KeyProtection.Builder(KeyProperties.PURPOSE_SIGN)
+          .setDigests(KeyProperties.DIGEST_SHA224,
+                      KeyProperties.DIGEST_SHA256,
+                      KeyProperties.DIGEST_SHA384,
+                      KeyProperties.DIGEST_SHA512)
+          .build();
+    KeyStore keyStore = KeyStoreUtil.saveKeysToKeystore(KEY_ALIAS_1, pubKey, privKey, keyProtection);
+    return (PrivateKey) keyStore.getKey(KEY_ALIAS_1, null);
+  }
 
   /**
    * Determines the Hash name from the ECDSA algorithm. There is a small inconsistency in the naming
@@ -149,15 +169,11 @@ public class EcdsaTest {
     ECPublicKey pub = (ECPublicKey) keyPair.getPublic();
     ECPrivateKey priv = (ECPrivateKey) keyPair.getPrivate();
 
-    // Print the parameters.
-    System.out.println("Parameters for curve:" + curve);
-    EcUtil.printParameters(pub.getParams());
-
     Signature signer;
     Signature verifier;
     try {
-      signer = Signature.getInstance(algorithm);
-      verifier = Signature.getInstance(algorithm);
+      signer = Signature.getInstance(algorithm, EXPECTED_PROVIDER_NAME);
+      verifier = Signature.getInstance(algorithm, EXPECTED_PROVIDER_NAME);
     } catch (NoSuchAlgorithmException ex) {
       // The algorithm is not supported.
       return false;
@@ -165,7 +181,7 @@ public class EcdsaTest {
     // Both algorithm and curve are supported.
     // Hence, we expect that signing and verifying properly works.
     byte[] messageBytes = message.getBytes("UTF-8");
-    signer.initSign(priv);
+    signer.initSign(getKeystorePrivateKey(pub, priv));
     signer.update(messageBytes);
     byte[] signature = signer.sign();
     verifier.initVerify(pub);
@@ -188,12 +204,7 @@ public class EcdsaTest {
   /** Checks whether the one time key k in ECDSA is biased. */
   public void testBias(String algorithm, String curve, ECParameterSpec ecParams) throws Exception {
     KeyPairGenerator keyGen = KeyPairGenerator.getInstance("EC");
-    try {
-      keyGen.initialize(ecParams);
-    } catch (InvalidAlgorithmParameterException ex) {
-      System.out.println("This provider does not support curve:" + curve);
-      return;
-    }
+    keyGen.initialize(ecParams);
     KeyPair keyPair = keyGen.generateKeyPair();
     ECPrivateKey priv = (ECPrivateKey) keyPair.getPrivate();
     // If we throw a fair coin tests times then the probability that
@@ -214,8 +225,8 @@ public class EcdsaTest {
     BigInteger q = priv.getParams().getOrder();
     BigInteger qHalf = q.shiftRight(1);
 
-    Signature signer = Signature.getInstance(algorithm);
-    signer.initSign(priv);
+    Signature signer = Signature.getInstance(algorithm, EXPECTED_PROVIDER_NAME);
+    signer.initSign(getKeystorePrivateKey(keyPair.getPublic(), keyPair.getPrivate()));
     BigInteger[] kList = new BigInteger[tests];
     for (int i = 0; i < tests; i++) {
       signer.update(messageBytes);
@@ -277,141 +288,17 @@ public class EcdsaTest {
     }
   }
 
-  @SlowTest(
-    providers = {
-      ProviderType.BOUNCY_CASTLE,
-      ProviderType.CONSCRYPT,
-      ProviderType.OPENJDK,
-      ProviderType.SPONGY_CASTLE
-    }
-  )
   @Test
   public void testBiasAll() throws Exception {
     testBias("SHA256WithECDSA", "secp256r1", EcUtil.getNistP256Params());
     testBias("SHA224WithECDSA", "secp224r1", EcUtil.getNistP224Params());
     testBias("SHA384WithECDSA", "secp384r1", EcUtil.getNistP384Params());
     testBias("SHA512WithECDSA", "secp521r1", EcUtil.getNistP521Params());
-    testBias("SHA256WithECDSA", "brainpoolP256r1", EcUtil.getBrainpoolP256r1Params());
   }
 
-  /**
-   * Tests for a potential timing attack. This test checks if there is a correlation between the
-   * timing of signature generation and the size of the one-time key k. This is for example the case
-   * if a double and add method is used for the point multiplication. The test fails if such a
-   * correlation can be shown with high confidence. Further analysis will be necessary to determine
-   * how easy it is to exploit the bias in a timing attack.
-   */
-  // TODO(bleichen): Determine if there are exploitable providers.
-  //
-  // SunEC currently fails this test. Since ECDSA typically is used with EC groups whose order
-  // is 224 bits or larger, it is unclear whether the same attacks that apply to DSA are practical.
-  //
-  // The ECDSA implementation in BouncyCastle leaks information about k through timing too.
-  // The test has not been optimized to detect this bias. It would require about 5'000'000 samples,
-  // which is too much for a simple unit test.
-  //
-  // BouncyCastle uses FixedPointCombMultiplier for ECDSA. This is a method using
-  // precomputation. The implementation is not constant time, since the precomputation table
-  // contains the point at infinity and adding this point is faster than ordinary point additions.
-  // The timing leak only has a small correlation to the size of k and at the moment it is is very
-  // unclear if the can be exploited. (Randomizing the precomputation table by adding the same
-  // random point to each element in the table and precomputing the necessary offset to undo the
-  // precomputation seems much easier than analyzing this.)
-  public void testTiming(String algorithm, String curve, ECParameterSpec ecParams)
-      throws Exception {
-    ThreadMXBean bean = ManagementFactory.getThreadMXBean();
-    if (!bean.isCurrentThreadCpuTimeSupported()) {
-      System.out.println("getCurrentThreadCpuTime is not supported. Skipping");
-      return;
-    }
-    KeyPairGenerator keyGen = KeyPairGenerator.getInstance("EC");
-    try {
-      keyGen.initialize(ecParams);
-    } catch (InvalidAlgorithmParameterException ex) {
-      System.out.println("This provider does not support curve:" + curve);
-      return;
-    }
-    KeyPair keyPair = keyGen.generateKeyPair();
-    ECPrivateKey priv = (ECPrivateKey) keyPair.getPrivate();
-
-    String message = "Hello";
-    String hashAlgorithm = getHashAlgorithm(algorithm);
-    byte[] messageBytes = message.getBytes("UTF-8");
-    byte[] digest = MessageDigest.getInstance(hashAlgorithm).digest(messageBytes);
-    BigInteger h = new BigInteger(1, digest);
-    Signature signer = Signature.getInstance(algorithm);
-    signer.initSign(priv);
-    // The number of samples used for the test. This number is a bit low.
-    // I.e. it just barely detects that SunEC leaks information about the size of k.
-    int samples = 50000;
-    long[] timing = new long[samples];
-    BigInteger[] k = new BigInteger[samples];
-    for (int i = 0; i < samples; i++) {
-      long start = bean.getCurrentThreadCpuTime();
-      signer.update(messageBytes);
-      byte[] signature = signer.sign();
-      timing[i] = bean.getCurrentThreadCpuTime() - start;
-      k[i] = extractK(signature, h, priv);
-    }
-    long[] sorted = Arrays.copyOf(timing, timing.length);
-    Arrays.sort(sorted);
-    double n = priv.getParams().getOrder().doubleValue();
-    double expectedAverage = n / 2;
-    double maxSigma = 0;
-    System.out.println("testTiming algorithm:" + algorithm);
-    for (int idx = samples - 1; idx > 10; idx /= 2) {
-      long cutoff = sorted[idx];
-      int count = 0;
-      BigInteger total = BigInteger.ZERO;
-      for (int i = 0; i < samples; i++) {
-        if (timing[i] <= cutoff) {
-          total = total.add(k[i]);
-          count += 1;
-        }
-      }
-      double expectedStdDev = n / Math.sqrt(12 * count);
-      double average = total.doubleValue() / count;
-      // Number of standard deviations that the average is away from
-      // the expected value:
-      double sigmas = Math.abs(expectedAverage - average) / expectedStdDev;
-      if (sigmas > maxSigma) {
-        maxSigma = sigmas;
-      }
-      System.out.println(
-          "count:"
-              + count
-              + " cutoff:"
-              + cutoff
-              + " relative average:"
-              + (average / expectedAverage)
-              + " sigmas:"
-              + sigmas);
-    }
-    // Checks if the signatures with a small timing have a biased k.
-    // We use 7 standard deviations, so that the probability of a false positive is smaller
-    // than 10^{-10}.
-    if (maxSigma >= 7) {
-      fail("Signatures with short timing have a biased k");
-    }
-  }
-
-  @SlowTest(
-    providers = {
-      ProviderType.BOUNCY_CASTLE,
-      ProviderType.CONSCRYPT,
-      ProviderType.OPENJDK,
-      ProviderType.SPONGY_CASTLE
-    }
-  )
   @Test
-  public void testTimingAll() throws Exception {
-    testTiming("SHA256WithECDSA", "secp256r1", EcUtil.getNistP256Params());
-    // TODO(bleichen): crypto libraries sometimes use optimized code for curves that are frequently
-    //   used. Hence it would make sense to test distinct curves. But at the moment testing many
-    //   curves is not practical since one test alone is already quite time consuming.
-    // testTiming("SHA224WithECDSA", "secp224r1", EcUtil.getNistP224Params());
-    // testTiming("SHA384WithECDSA", "secp384r1", EcUtil.getNistP384Params());
-    // testTiming("SHA512WithECDSA", "secp521r1", EcUtil.getNistP521Params());
-    // testTiming("SHA256WithECDSA", "brainpoolP256r1", EcUtil.getBrainpoolP256r1Params());
+  @Ignore // Brainpool curve are not supported in AndroidKeyStore
+  public void testBiasBrainpoolCurve() throws Exception {
+    testBias("SHA256WithECDSA", "brainpoolP256r1", EcUtil.getBrainpoolP256r1Params());
   }
 }
