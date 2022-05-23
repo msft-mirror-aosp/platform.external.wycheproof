@@ -60,11 +60,6 @@ java_library_static {
         "keystore-cts/java/**/*.java",
         "keystore-cts/android/**/*.java",
     ],
-    exclude_srcs: [
-        "keystore-cts/java/**/JsonEcdhTest.java",
-        "keystore-cts/java/**/RsaOaepTest.java",
-        "keystore-cts/java/**/RsaPssTest.java",
-    ],
     java_resource_dirs: ["keystore-cts/testvectors"],
     sdk_version: "current",
     libs: [
@@ -77,6 +72,8 @@ java_library_static {
 
 java_import {
     name: "wycheproof-gson",
-    visibility: ["//cts/tests/tests/keystore"],
+    visibility: [
+        "//cts/tests/tests/keystore",
+    ],
     jars: ["keystore-cts/libs/gson-2.9.0.jar"],
 }
