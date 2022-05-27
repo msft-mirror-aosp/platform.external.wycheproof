@@ -42,8 +42,7 @@ import javax.security.auth.x500.X500Principal;
 public class KeyStoreUtil {
 
     public static KeyStore saveKeysToKeystore(String alias, PublicKey pubKey, PrivateKey privKey,
-                                             KeyProtection keyProtection)
-                                             throws Exception {
+            KeyProtection keyProtection) throws Exception {
         KeyPair keyPair = new KeyPair(pubKey, privKey);
         X509Certificate certificate = createCertificate(keyPair,
                                                         new X500Principal("CN=Test1"),
@@ -58,8 +57,7 @@ public class KeyStoreUtil {
     }
 
     public static KeyStore saveSecretKeyToKeystore(String alias, SecretKeySpec keySpec,
-                                                    KeyProtection keyProtection)
-                                                    throws Exception {
+            KeyProtection keyProtection) throws Exception {
         KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
         keyStore.load(null);
         keyStore.setEntry(alias,
