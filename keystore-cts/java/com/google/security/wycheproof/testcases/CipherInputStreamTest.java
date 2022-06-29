@@ -25,12 +25,17 @@ import java.security.spec.AlgorithmParameterSpec;
 import java.util.ArrayList;
 import java.util.Arrays;
 import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
 import javax.crypto.CipherInputStream;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+import org.junit.After;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import org.junit.Ignore;
+import android.security.keystore.KeyProtection;
+import android.security.keystore.KeyProperties;
+import java.security.KeyStore;
+import android.keystore.cts.util.KeyStoreUtil;
 
 /** 
  * CipherInputStream tests
@@ -51,9 +56,14 @@ import org.junit.runners.JUnit4;
  * All other tests run under the assumption that returning an empty plaintext is acceptable
  * behaviour, so that the tests are able to catch additional problems.
  */
-@RunWith(JUnit4.class)
 public class CipherInputStreamTest {
+  private static final String EXPECTED_PROVIDER_NAME = TestUtil.EXPECTED_CRYPTO_OP_PROVIDER_NAME;
   static final SecureRandom rand = new SecureRandom();
+
+  @After
+  public void tearDown() throws Exception {
+    KeyStoreUtil.cleanUpKeyStore();
+  }
 
   static byte[] randomBytes(int size) {
     byte[] bytes = new byte[size];
@@ -61,8 +71,16 @@ public class CipherInputStreamTest {
     return bytes;
   }
 
-  static SecretKeySpec randomKey(String algorithm, int keySizeInBytes) {
-    return new SecretKeySpec(randomBytes(keySizeInBytes), "AES");
+  static SecretKey randomKey(String algorithm, String alias, int keySizeInBytes) throws Exception {
+      SecretKeySpec keySpec = new SecretKeySpec(randomBytes(keySizeInBytes), "AES");
+      KeyStore keyStore = KeyStoreUtil.saveSecretKeyToKeystore(alias, keySpec,
+          new KeyProtection.Builder(KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+                  .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                  .setRandomizedEncryptionRequired(false)
+                  .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                  .build());
+      // Key imported, obtain a reference to it.
+      return (SecretKey) keyStore.getKey(alias, null);
   }
 
   static AlgorithmParameterSpec randomParameters(
@@ -76,7 +94,7 @@ public class CipherInputStreamTest {
   /** Test vectors */
   public static class TestVector {
     public String algorithm;
-    public SecretKeySpec key;
+    public SecretKey key;
     public AlgorithmParameterSpec params;
     public byte[] pt;
     public byte[] aad;
@@ -84,14 +102,14 @@ public class CipherInputStreamTest {
 
     @SuppressWarnings("InsecureCryptoUsage")
     public TestVector(
-        String algorithm, int keySize, int ivSize, int tagSize, int ptSize, int aadSize)
-        throws Exception {
+        String algorithm, String alias, int keySize,
+        int ivSize, int tagSize, int ptSize, int aadSize) throws Exception {
       this.algorithm = algorithm;
-      this.key = randomKey(algorithm, keySize);
+      this.key = randomKey(algorithm, alias, keySize);
       this.params = randomParameters(algorithm, ivSize, tagSize);
       this.pt = randomBytes(ptSize);
       this.aad = randomBytes(aadSize);
-      Cipher cipher = Cipher.getInstance(algorithm);
+      Cipher cipher = Cipher.getInstance(algorithm, EXPECTED_PROVIDER_NAME);
       cipher.init(Cipher.ENCRYPT_MODE, this.key, this.params);
       cipher.updateAAD(aad);
       this.ct = cipher.doFinal(pt);
@@ -112,7 +130,10 @@ public class CipherInputStreamTest {
         for (int tagSize : tagSizes) {
           for (int ptSize : ptSizes) {
             for (int aadSize : aadSizes) {
-              result.add(new TestVector(algorithm, keySize, ivSize, tagSize, ptSize, aadSize));
+              String keyAlias = "Key-" + keySize + "-" + ivSize + "-" + tagSize +
+                                "-" + ptSize + "-" + aadSize;
+              result.add(new TestVector(algorithm, keyAlias, keySize,
+                                        ivSize, tagSize, ptSize, aadSize));
             }
           }
         }
@@ -124,7 +145,7 @@ public class CipherInputStreamTest {
   @SuppressWarnings("InsecureCryptoUsage")
   public void testEncrypt(Iterable<TestVector> tests) throws Exception {
     for (TestVector t : tests) {
-      Cipher cipher = Cipher.getInstance(t.algorithm);
+      Cipher cipher = Cipher.getInstance(t.algorithm, EXPECTED_PROVIDER_NAME);
       cipher.init(Cipher.ENCRYPT_MODE, t.key, t.params);
       cipher.updateAAD(t.aad);
       InputStream is = new ByteArrayInputStream(t.pt);
@@ -148,7 +169,7 @@ public class CipherInputStreamTest {
   @SuppressWarnings("InsecureCryptoUsage")
   public void testDecrypt(Iterable<TestVector> tests) throws Exception {
     for (TestVector t : tests) {
-      Cipher cipher = Cipher.getInstance(t.algorithm);
+      Cipher cipher = Cipher.getInstance(t.algorithm, EXPECTED_PROVIDER_NAME);
       cipher.init(Cipher.DECRYPT_MODE, t.key, t.params);
       cipher.updateAAD(t.aad);
       InputStream is = new ByteArrayInputStream(t.ct);
@@ -184,7 +205,7 @@ public class CipherInputStreamTest {
   public void testCorruptDecrypt(Iterable<TestVector> tests, boolean acceptEmptyPlaintext)
       throws Exception {
     for (TestVector t : tests) {
-      Cipher cipher = Cipher.getInstance(t.algorithm);
+      Cipher cipher = Cipher.getInstance(t.algorithm, EXPECTED_PROVIDER_NAME);
       cipher.init(Cipher.DECRYPT_MODE, t.key, t.params);
       cipher.updateAAD(t.aad);
       byte[] ct = Arrays.copyOf(t.ct, t.ct.length);
@@ -263,6 +284,7 @@ public class CipherInputStreamTest {
 
   /** Tests CipherOutputStream with AES-EAX if this algorithm is supported by the provider. */
   @Test
+  @Ignore // Ignored due to AES/EAX algorithm is not supported in AndroidKeyStore
   public void testAesEax() throws Exception {
     final String algorithm = "AES/EAX/NoPadding";
     final int[] keySizes = {16, 32};
@@ -270,12 +292,6 @@ public class CipherInputStreamTest {
     final int[] tagSizes = {12, 16};
     final int[] ptSizes = {0, 8, 16, 65, 8100};
     final int[] aadSizes = {0, 8, 24};
-    try {
-      Cipher.getInstance(algorithm);
-    } catch (NoSuchAlgorithmException ex) {
-      System.out.println("Skipping testAesEax");
-      return;
-    }
     Iterable<TestVector> v =
         getTestVectors(algorithm, keySizes, ivSizes, tagSizes, ptSizes, aadSizes);
     testEncrypt(v);

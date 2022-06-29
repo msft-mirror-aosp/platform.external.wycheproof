@@ -14,6 +14,7 @@
 package com.google.security.wycheproof;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
 
 import com.google.gson.JsonElement;
@@ -23,11 +24,15 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Set;
 import java.util.TreeSet;
 import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+import org.junit.After;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import android.security.keystore.KeyProtection;
+import android.security.keystore.KeyProperties;
+import java.security.KeyStore;
+import android.keystore.cts.util.KeyStoreUtil;
 
 /**
  * This test uses test vectors in JSON format to test symmetric ciphers.
@@ -36,8 +41,14 @@ import org.junit.runners.JUnit4;
  * are randomized using an initialization vector as long as the JSON test vectors are represented
  * with the type "IndCpaTest".
  */
-@RunWith(JUnit4.class)
 public class JsonCipherTest {
+  private static final String EXPECTED_PROVIDER_NAME = TestUtil.EXPECTED_CRYPTO_OP_PROVIDER_NAME;
+  private static final String KEY_ALIAS_1 = "Key1";
+
+  @After
+  public void tearDown() throws Exception {
+    KeyStoreUtil.cleanUpKeyStore();
+  }
 
   /** Convenience method to get a byte array from a JsonObject. */
   protected static byte[] getBytes(JsonObject object, String name) throws Exception {
@@ -73,7 +84,16 @@ public class JsonCipherTest {
       fail("Unsupported algorithm:" + algorithm);
     }
     IvParameterSpec ivSpec = new IvParameterSpec(iv);
-    cipher.init(opmode, keySpec, ivSpec);
+    KeyStore keyStore = KeyStoreUtil.saveSecretKeyToKeystore(KEY_ALIAS_1, keySpec,
+          new KeyProtection.Builder(KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+                 .setBlockModes(KeyProperties.BLOCK_MODE_CBC)
+                 .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_PKCS7)
+                 .setRandomizedEncryptionRequired(false)
+                 .build());
+    // Key imported, obtain a reference to it.
+    SecretKey keyStoreKey = (SecretKey) keyStore.getKey(KEY_ALIAS_1, null);
+
+    cipher.init(opmode, keyStoreKey, ivSpec);
   }
 
 
@@ -111,27 +131,20 @@ public class JsonCipherTest {
     // the minor number if only the test vectors (but not the format) changes.
     // Versions meant for distribution have no status.
     final String expectedVersion = "0.4";
-    JsonObject test = JsonUtil.getTestVectors(filename);
+    JsonObject test = JsonUtil.getTestVectors(this.getClass(), filename);
     Set<String> exceptions = new TreeSet<String>();
     String generatorVersion = test.get("generatorVersion").getAsString();
-    if (!generatorVersion.equals(expectedVersion)) {
-      System.out.println(
+    assertFalse(
           algorithm
               + ": expecting test vectors with version "
               + expectedVersion
               + " found vectors with version "
-              + generatorVersion);
-    }
+              + generatorVersion,
+          generatorVersion.equals(expectedVersion));
     int numTests = test.get("numberOfTests").getAsInt();
     int cntTests = 0;
     int errors = 0;
-    Cipher cipher;
-    try {
-      cipher = Cipher.getInstance(algorithm);
-    } catch (NoSuchAlgorithmException ex) {
-      System.out.println("Algorithm is not supported. Skipping test for " + algorithm);
-      return;
-    }
+    Cipher cipher = Cipher.getInstance(algorithm, EXPECTED_PROVIDER_NAME);
     for (JsonElement g : test.getAsJsonArray("testGroups")) {
       JsonObject group = g.getAsJsonObject();
       for (JsonElement t : group.getAsJsonArray("tests")) {
@@ -155,7 +168,6 @@ public class JsonCipherTest {
         } catch (GeneralSecurityException ex) {
           // Some libraries restrict key size, iv size and tag size.
           // Because of the initialization of the cipher might fail.
-          System.out.println(ex.toString());
           continue;
         }
         try {
@@ -164,22 +176,15 @@ public class JsonCipherTest {
           if (result.equals("invalid")) {
             if (eq) {
               // Some test vectors use invalid parameters that should be rejected.
-              System.out.println("Encrypted " + tc);
               errors++;
             }
           } else {
             if (!eq) {
-              System.out.println(
-                  "Incorrect ciphertext for "
-                      + tc
-                      + " ciphertext:"
-                      + TestUtil.bytesToHex(encrypted));
               errors++;
             }
           }
         } catch (GeneralSecurityException ex) {
           if (result.equals("valid")) {
-            System.out.println("Failed to encrypt " + tc);
             errors++;
           }
         }
@@ -192,7 +197,6 @@ public class JsonCipherTest {
         try {
           initCipher(cipher, algorithm, Cipher.DECRYPT_MODE, key, iv);
         } catch (GeneralSecurityException ex) {
-          System.out.println("Parameters accepted for encryption but not decryption " + tc);
           errors++;
           continue;
         }
@@ -200,18 +204,15 @@ public class JsonCipherTest {
           byte[] decrypted = cipher.doFinal(ciphertext);
           boolean eq = arrayEquals(decrypted, msg);
           if (result.equals("invalid")) {
-            System.out.println("Decrypted invalid ciphertext " + tc + " eq:" + eq);
             errors++;
           } else {
             if (!eq) {
-              System.out.println(
-                  "Incorrect decryption " + tc + " decrypted:" + TestUtil.bytesToHex(decrypted));
+              errors++;
             }
           }
         } catch (GeneralSecurityException ex) {
-          exceptions.add(ex.getMessage());
+          exceptions.add(ex.getMessage() == null ? "" : ex.getMessage());
           if (result.equals("valid")) {
-            System.out.println("Failed to decrypt " + tc);
             errors++;
           }
         }
@@ -228,15 +229,18 @@ public class JsonCipherTest {
     // AES/CBC/PKCS5Padding with the tested provider are vulnerable to attacks. Rather it means
     // that the provider might simplify attacks if the protocol is using AES/CBC/PKCS5Padding
     // incorrectly.
-    System.out.println("Number of distinct exceptions:" + exceptions.size());
+    StringBuilder sb = new StringBuilder();
+    sb.append("Exceptions: ");
     for (String ex : exceptions) {
-      System.out.println(ex);
+      sb.append(ex.toString() + " ");
     }
-    assertEquals(1, exceptions.size());
+    assertEquals(sb.toString(), 1, exceptions.size());
   }
 
   @Test
   public void testAesCbcPkcs5() throws Exception {
-    testCipher("aes_cbc_pkcs5_test.json", "AES/CBC/PKCS5Padding");
+    // AndroidKeyStore only suuport AES/CBC/PKCS7Padding algorithm,
+    // so it is used instead of PKCS5Padding
+    testCipher("aes_cbc_pkcs5_test.json", "AES/CBC/PKCS7Padding");
   }
 }
