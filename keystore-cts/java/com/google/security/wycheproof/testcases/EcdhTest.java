@@ -16,6 +16,7 @@ package com.google.security.wycheproof;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 import java.math.BigInteger;
 import java.security.GeneralSecurityException;
 import java.security.InvalidKeyException;
@@ -42,10 +43,15 @@ import javax.crypto.KeyAgreement;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.Ignore;
+import android.content.Context;
 import android.security.keystore.KeyProtection;
 import android.security.keystore.KeyProperties;
 import android.security.keystore.KeyGenParameterSpec;
 import android.keystore.cts.util.KeyStoreUtil;
+import android.keystore.cts.util.TestUtils;
+
+import androidx.test.InstrumentationRegistry;
+
 /**
  * Testing ECDH.
  *
@@ -773,6 +779,15 @@ public static final EcPublicKeyTestVector EC_VALID_PUBLIC_KEY =
 
   @Test
   public void testNistCurveLargePrivateKey() throws Exception {
+    Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+    /**
+     * Software emulation of ECDH / AGREE_KEY function is performed by Keystore when the underlying
+     * device is a Keymaster implementation rather than KeyMint. However, this emulated support does
+     * not (yet) support imported ECDH keys, so skip the test if this is the case (b/216434270).
+     */
+    assumeTrue("This test can only test with keymint version 1 and above",
+         TestUtils.getFeatureVersionKeystore(context) >= KeyStoreUtil.KM_VERSION_KEYMINT_1);
+
     testLargePrivateKey(EcUtil.getNistP224Params());
     testLargePrivateKey(EcUtil.getNistP256Params());
     testLargePrivateKey(EcUtil.getNistP384Params());
