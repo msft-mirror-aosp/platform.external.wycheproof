@@ -40,6 +40,15 @@ import javax.security.auth.x500.X500Principal;
 
 /** Keystore utilities */
 public class KeyStoreUtil {
+    // Known KeyMaster/KeyMint versions. This is the version number
+    // which appear in the keymasterVersion field.
+    public static final int KM_VERSION_KEYMASTER_1 = 10;
+    public static final int KM_VERSION_KEYMASTER_1_1 = 11;
+    public static final int KM_VERSION_KEYMASTER_2 = 20;
+    public static final int KM_VERSION_KEYMASTER_3 = 30;
+    public static final int KM_VERSION_KEYMASTER_4 = 40;
+    public static final int KM_VERSION_KEYMASTER_4_1 = 41;
+    public static final int KM_VERSION_KEYMINT_1 = 100;
 
     public static KeyStore saveKeysToKeystore(String alias, PublicKey pubKey, PrivateKey privKey,
             KeyProtection keyProtection) throws Exception {
