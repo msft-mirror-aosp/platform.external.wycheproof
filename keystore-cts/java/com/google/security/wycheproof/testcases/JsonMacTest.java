@@ -72,8 +72,8 @@ public class JsonMacTest {
    *     if the initialization failed. For example one case are GMACs with a tag size othe than 128
    *     bits, since the JCE interface does not seem to support such a specification.
    */
-  protected static byte[] computeMac(String algorithm, byte[] key, byte[] msg, int tagSize)
-      throws Exception {
+  protected static byte[] computeMac(String algorithm, byte[] key, byte[] msg, int tagSize,
+                                     boolean isStrongBox) throws Exception {
     Mac mac = Mac.getInstance(algorithm, EXPECTED_PROVIDER_NAME);
     algorithm = algorithm.toUpperCase(Locale.ENGLISH);
     if (algorithm.startsWith("HMAC")) {
@@ -91,7 +91,9 @@ public class JsonMacTest {
       //   full length tag and truncates it. The drawback of having to truncate tags is that
       //   the caller has to compare truncated tags during verification.
       KeyStore keyStore = KeyStoreUtil.saveSecretKeyToKeystore(KEY_ALIAS_1, keySpec, 
-              new KeyProtection.Builder(KeyProperties.PURPOSE_SIGN).build());
+              new KeyProtection.Builder(KeyProperties.PURPOSE_SIGN)
+                      .setIsStrongBoxBacked(isStrongBox)
+                      .build());
       // Key imported, obtain a reference to it.
       Key keyStoreKey = keyStore.getKey(KEY_ALIAS_1, null);
       mac.init(keyStoreKey);
@@ -110,6 +112,9 @@ public class JsonMacTest {
    * @param filename the JSON file with the test vectors.
    */
   public void testMac(String filename) throws Exception {
+    testMac(filename, false);
+  }
+  public void testMac(String filename, boolean isStrongBox) throws Exception {
     // Checking preconditions.
     JsonObject test = JsonUtil.getTestVectors(this.getClass(), filename);
     String algorithm = test.get("algorithm").getAsString();
@@ -130,14 +135,17 @@ public class JsonMacTest {
         byte[] key = getBytes(testcase, "key");
         byte[] msg = getBytes(testcase, "msg");
         byte[] expectedTag = getBytes(testcase, "tag");
+        // Strongbox only supports key size from 8 to 32 bytes.
+        if (isStrongBox && (key.length < 8 || key.length > 32)) {
+          continue;
+        }
         // Result is one of "valid", "invalid", "acceptable".
         // "valid" are test vectors with matching plaintext, ciphertext and tag.
         // "invalid" are test vectors with invalid parameters or invalid ciphertext and tag.
         // "acceptable" are test vectors with weak parameters or legacy formats.
         String result = testcase.get("result").getAsString();
-
         byte[] computedTag = null;
-        computedTag = computeMac(algorithm, key, msg, tagSize);
+        computedTag = computeMac(algorithm, key, msg, tagSize, isStrongBox);
 
         boolean eq = arrayEquals(expectedTag, computedTag);
         if (result.equals("invalid")) {
@@ -263,6 +271,11 @@ public class JsonMacTest {
   @Test
   public void testHmacSha256() throws Exception {
     testMac("hmac_sha256_test.json");
+  }
+  @Test
+  public void testHmacSha256_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testMac("hmac_sha256_test.json", true);
   }
 
   @Test
