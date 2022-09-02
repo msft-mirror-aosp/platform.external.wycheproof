@@ -11,8 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.security.wycheproof;
+package android.keystore.cts.util;
 
+import android.security.keystore.KeyProtection;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.cert.X509CertificateHolder;
@@ -22,16 +23,66 @@ import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.math.BigInteger;
+import java.security.GeneralSecurityException;
 import java.security.KeyPair;
+import java.security.KeyStore;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.security.SecureRandom;
+import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Date;
+import java.util.Enumeration;
+import javax.crypto.spec.SecretKeySpec;
 import javax.security.auth.x500.X500Principal;
 
-/** Certificate utilities */
-public class CertificateUtil {
+/** Keystore utilities */
+public class KeyStoreUtil {
+    // Known KeyMaster/KeyMint versions. This is the version number
+    // which appear in the keymasterVersion field.
+    public static final int KM_VERSION_KEYMASTER_1 = 10;
+    public static final int KM_VERSION_KEYMASTER_1_1 = 11;
+    public static final int KM_VERSION_KEYMASTER_2 = 20;
+    public static final int KM_VERSION_KEYMASTER_3 = 30;
+    public static final int KM_VERSION_KEYMASTER_4 = 40;
+    public static final int KM_VERSION_KEYMASTER_4_1 = 41;
+    public static final int KM_VERSION_KEYMINT_1 = 100;
+
+    public static KeyStore saveKeysToKeystore(String alias, PublicKey pubKey, PrivateKey privKey,
+            KeyProtection keyProtection) throws Exception {
+        KeyPair keyPair = new KeyPair(pubKey, privKey);
+        X509Certificate certificate = createCertificate(keyPair,
+                                                        new X500Principal("CN=Test1"),
+                                                        new X500Principal("CN=Test1"));
+        Certificate[] certChain = new Certificate[]{certificate};
+        KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
+        keyStore.load(null);
+        keyStore.setEntry(alias,
+                        new KeyStore.PrivateKeyEntry(privKey, certChain),
+                        keyProtection);
+        return keyStore;
+    }
+
+    public static KeyStore saveSecretKeyToKeystore(String alias, SecretKeySpec keySpec,
+            KeyProtection keyProtection) throws Exception {
+        KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
+        keyStore.load(null);
+        keyStore.setEntry(alias,
+                        new KeyStore.SecretKeyEntry(keySpec),
+                        keyProtection);
+         return keyStore;
+    }
+
+    public static void cleanUpKeyStore() throws Exception {
+        KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
+        keyStore.load(null);
+        for (Enumeration<String> aliases = keyStore.aliases(); aliases.hasMoreElements();) {
+            String alias = aliases.nextElement();
+            keyStore.deleteEntry(alias);
+        }
+    }
 
     public static X509Certificate createCertificate(
             KeyPair keyPair, X500Principal subject, X500Principal issuer)
