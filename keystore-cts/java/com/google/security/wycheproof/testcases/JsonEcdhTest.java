@@ -156,6 +156,8 @@ public class JsonEcdhTest {
             passedTests++;
           }
         } catch (InvalidKeySpecException | InvalidKeyException | NoSuchAlgorithmException ex) {
+          Log.e(TAG,
+                  "Test vector with tcId:" + tcid + " comment:" + comment + " throws:" + ex.toString());
           // These are the exception that we expect to see when a curve is not implemented
           // or when a key is not valid.
           if (result.equals("valid")) {
@@ -172,29 +174,25 @@ public class JsonEcdhTest {
       }
     }
     assertEquals(0, errors);
-    assertEquals(numTests, passedTests);
+    assertEquals(numTests, passedTests + rejectedTests);
   }
 
   @Test
-  @Ignore //TODO Reverify after bug b/215175472 is fixed.
   public void testSecp224r1() throws Exception {
     testEcdhComp("ecdh_secp224r1_test.json");
   }
 
   @Test
-  @Ignore //TODO Reverify after bug b/215175472 is fixed.
   public void testSecp256r1() throws Exception {
     testEcdhComp("ecdh_secp256r1_test.json");
   }
 
   @Test
-  @Ignore //TODO Reverify after bug b/215175472 is fixed.
   public void testSecp384r1() throws Exception {
     testEcdhComp("ecdh_secp384r1_test.json");
   }
 
   @Test
-  @Ignore //TODO Reverify after bug b/215175472 is fixed.
   public void testSecp521r1() throws Exception {
     testEcdhComp("ecdh_secp521r1_test.json");
   }
