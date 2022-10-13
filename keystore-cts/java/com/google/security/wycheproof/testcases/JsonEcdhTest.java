@@ -14,6 +14,7 @@
 package com.google.security.wycheproof;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assume.assumeTrue;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -29,6 +30,7 @@ import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import javax.crypto.KeyAgreement;
 import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.Ignore;
 import android.security.keystore.KeyProtection;
@@ -45,6 +47,16 @@ public class JsonEcdhTest {
   @After
   public void tearDown() throws Exception {
     KeyStoreUtil.cleanUpKeyStore();
+  }
+
+  @Before
+  public void setup() {
+    // In this test class ECDH keys are imported for key agreement (PURPOSE_AGREE_KEY).
+    // KeyMaster could support this key import through software emulation,
+    // but currently it is missing (b/216434270). Hence, this assumption is added till ECDH
+    // key import software emulation is not implemented.
+    assumeTrue("PURPOSE_AGREE_KEY is supported in KeyMint version 1 and above.",
+            KeyStoreUtil.getFeatureVersionKeystore() >= KeyStoreUtil.KM_VERSION_KEYMINT_1);
   }
 
   /** Convenience mehtod to get a String from a JsonObject */
