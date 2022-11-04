@@ -55,15 +55,17 @@ public class EcdsaTest {
     KeyStoreUtil.cleanUpKeyStore();
   }
 
-  private static PrivateKey getKeystorePrivateKey(PublicKey pubKey, PrivateKey privKey)
-  throws Exception {
+  private static PrivateKey getKeystorePrivateKey(PublicKey pubKey, PrivateKey privKey,
+                                                  boolean isStrongBox) throws Exception {
     KeyProtection keyProtection = new KeyProtection.Builder(KeyProperties.PURPOSE_SIGN)
           .setDigests(KeyProperties.DIGEST_SHA224,
                       KeyProperties.DIGEST_SHA256,
                       KeyProperties.DIGEST_SHA384,
                       KeyProperties.DIGEST_SHA512)
+          .setIsStrongBoxBacked(isStrongBox)
           .build();
-    KeyStore keyStore = KeyStoreUtil.saveKeysToKeystore(KEY_ALIAS_1, pubKey, privKey, keyProtection);
+    KeyStore keyStore = KeyStoreUtil.saveKeysToKeystore(KEY_ALIAS_1, pubKey, privKey,
+                                                        keyProtection);
     return (PrivateKey) keyStore.getKey(KEY_ALIAS_1, null);
   }
 
@@ -151,6 +153,9 @@ public class EcdsaTest {
    * @throws Exception if an unexpected error occurred.
    */
   boolean testParameters(String algorithm, String curve) throws Exception {
+    return testParameters(algorithm, curve, false);
+  }
+  boolean testParameters(String algorithm, String curve, boolean isStrongBox) throws Exception {
     String message = "123400";
 
     KeyPairGenerator keyGen = KeyPairGenerator.getInstance("EC");
@@ -181,7 +186,7 @@ public class EcdsaTest {
     // Both algorithm and curve are supported.
     // Hence, we expect that signing and verifying properly works.
     byte[] messageBytes = message.getBytes("UTF-8");
-    signer.initSign(getKeystorePrivateKey(pub, priv));
+    signer.initSign(getKeystorePrivateKey(pub, priv, isStrongBox));
     signer.update(messageBytes);
     byte[] signature = signer.sign();
     verifier.initVerify(pub);
@@ -200,9 +205,20 @@ public class EcdsaTest {
     String curve = "secp256r1";
     assertTrue(testParameters(algorithm, curve));
   }
+  @Test
+  public void testBasic_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    String algorithm = "SHA256WithECDSA";
+    String curve = "secp256r1";
+    assertTrue(testParameters(algorithm, curve, true));
+  }
 
   /** Checks whether the one time key k in ECDSA is biased. */
   public void testBias(String algorithm, String curve, ECParameterSpec ecParams) throws Exception {
+    testBias(algorithm, curve, ecParams, false);
+  }
+  public void testBias(String algorithm, String curve, ECParameterSpec ecParams,
+                       boolean isStrongBox) throws Exception {
     KeyPairGenerator keyGen = KeyPairGenerator.getInstance("EC");
     keyGen.initialize(ecParams);
     KeyPair keyPair = keyGen.generateKeyPair();
@@ -226,7 +242,7 @@ public class EcdsaTest {
     BigInteger qHalf = q.shiftRight(1);
 
     Signature signer = Signature.getInstance(algorithm, EXPECTED_PROVIDER_NAME);
-    signer.initSign(getKeystorePrivateKey(keyPair.getPublic(), keyPair.getPrivate()));
+    signer.initSign(getKeystorePrivateKey(keyPair.getPublic(), keyPair.getPrivate(), isStrongBox));
     BigInteger[] kList = new BigInteger[tests];
     for (int i = 0; i < tests; i++) {
       signer.update(messageBytes);
@@ -294,6 +310,11 @@ public class EcdsaTest {
     testBias("SHA224WithECDSA", "secp224r1", EcUtil.getNistP224Params());
     testBias("SHA384WithECDSA", "secp384r1", EcUtil.getNistP384Params());
     testBias("SHA512WithECDSA", "secp521r1", EcUtil.getNistP521Params());
+  }
+  @Test
+  public void testBiasAll_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testBias("SHA256WithECDSA", "secp256r1", EcUtil.getNistP256Params(), true);
   }
 
   @Test

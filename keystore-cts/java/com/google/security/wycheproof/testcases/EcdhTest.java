@@ -104,21 +104,25 @@ public class EcdhTest {
     KeyStoreUtil.cleanUpKeyStore();
   }
 
-  private static PrivateKey getKeystorePrivateKey(PublicKey pubKey, PrivateKey privKey)
+  private static PrivateKey getKeystorePrivateKey(PublicKey pubKey, PrivateKey privKey,
+                                                  boolean isStrongBox)
     throws Exception {
     return (PrivateKey) KeyStoreUtil.saveKeysToKeystore(
                                     KEY_ALIAS_1, pubKey, privKey,
                                     new KeyProtection.Builder(KeyProperties.PURPOSE_AGREE_KEY)
+                                    .setIsStrongBoxBacked(isStrongBox)
                                     .build())
                                 .getKey(KEY_ALIAS_1, null);
   }
 
-  private KeyPair generateECKeyPair(String alias, ECGenParameterSpec ecSpec) throws Exception {
+  private KeyPair generateECKeyPair(String alias, ECGenParameterSpec ecSpec, boolean isStrongBox)
+          throws Exception {
     KeyPairGenerator keyGen = KeyPairGenerator.getInstance("EC", EXPECTED_PROVIDER_NAME);
     KeyGenParameterSpec ecKeySpec =
                 new KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_AGREE_KEY)
-                .setAlgorithmParameterSpec(ecSpec)
-                .build();
+                        .setAlgorithmParameterSpec(ecSpec)
+                        .setIsStrongBoxBacked(isStrongBox)
+                        .build();
 
     keyGen.initialize(ecKeySpec);
     return keyGen.generateKeyPair();
@@ -540,8 +544,18 @@ public static final EcPublicKeyTestVector EC_VALID_PUBLIC_KEY =
   /** Checks that key agreement using ECDH works. */
   @Test
   public void testBasic() throws Exception {
-    KeyPair keyPairA = generateECKeyPair(KEY_ALIAS_2, new ECGenParameterSpec("secp256r1"));
-    KeyPair keyPairB = generateECKeyPair(KEY_ALIAS_3, new ECGenParameterSpec("secp256r1"));
+    testBasic(false);
+  }
+  @Test
+  public void testBasic_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testBasic(true);
+  }
+  private void testBasic(boolean isStrongBox) throws Exception {
+    KeyPair keyPairA = generateECKeyPair(KEY_ALIAS_2, new ECGenParameterSpec("secp256r1"),
+                                        isStrongBox);
+    KeyPair keyPairB = generateECKeyPair(KEY_ALIAS_3, new ECGenParameterSpec("secp256r1"),
+                                        isStrongBox);
 
     KeyAgreement kaA = KeyAgreement.getInstance("ECDH", EXPECTED_PROVIDER_NAME);
     KeyAgreement kaB = KeyAgreement.getInstance("ECDH", EXPECTED_PROVIDER_NAME);
@@ -583,8 +597,13 @@ public static final EcPublicKeyTestVector EC_VALID_PUBLIC_KEY =
    */
   @SuppressWarnings("InsecureCryptoUsage")
   public void testModifiedPublic(String algorithm) throws Exception {
+    testModifiedPublic(algorithm, false);
+  }
+  @SuppressWarnings("InsecureCryptoUsage")
+  public void testModifiedPublic(String algorithm, boolean isStrongBox) throws Exception {
     KeyAgreement ka = KeyAgreement.getInstance(algorithm, EXPECTED_PROVIDER_NAME);
-    KeyPair pair = generateECKeyPair(KEY_ALIAS_1, new ECGenParameterSpec("secp256r1"));
+    KeyPair pair = generateECKeyPair(KEY_ALIAS_1, new ECGenParameterSpec("secp256r1"),
+            isStrongBox);
     KeyFactory kf = KeyFactory.getInstance("EC");
     ECPublicKey validKey = (ECPublicKey) kf.generatePublic(EC_VALID_PUBLIC_KEY.getSpec());
     ka.init(pair.getPrivate());
@@ -619,8 +638,13 @@ public static final EcPublicKeyTestVector EC_VALID_PUBLIC_KEY =
    */
   @SuppressWarnings("InsecureCryptoUsage")
   public void testModifiedPublicSpec(String algorithm) throws Exception {
+    testModifiedPublicSpec(algorithm, false);
+  }
+  @SuppressWarnings("InsecureCryptoUsage")
+  public void testModifiedPublicSpec(String algorithm, boolean isStrongBox) throws Exception {
     KeyAgreement ka = KeyAgreement.getInstance(algorithm, EXPECTED_PROVIDER_NAME);
-    KeyPair pair = generateECKeyPair(KEY_ALIAS_1, new ECGenParameterSpec("secp256r1"));
+    KeyPair pair = generateECKeyPair(KEY_ALIAS_1, new ECGenParameterSpec("secp256r1"),
+            isStrongBox);
     KeyFactory kf = KeyFactory.getInstance("EC");
     ECPublicKey validKey = (ECPublicKey) kf.generatePublic(EC_VALID_PUBLIC_KEY.getSpec());
     ka.init(pair.getPrivate());
@@ -658,6 +682,11 @@ public static final EcPublicKeyTestVector EC_VALID_PUBLIC_KEY =
   public void testEcdhModifiedPublic() throws Exception {
     testModifiedPublic("ECDH");
   }
+  @Test
+  public void testEcdhModifiedPublic_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testModifiedPublic("ECDH", true);
+  }
 
   @Test
   @Ignore // ECDHC algorithm is not supported in AndroidKeyStore
@@ -668,6 +697,11 @@ public static final EcPublicKeyTestVector EC_VALID_PUBLIC_KEY =
   @Test
   public void testEcdhModifiedPublicSpec() throws Exception {
     testModifiedPublicSpec("ECDH");
+  }
+  @Test
+  public void testEcdhModifiedPublicSpec_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testModifiedPublicSpec("ECDH", true);
   }
 
   @Test
@@ -684,12 +718,20 @@ public static final EcPublicKeyTestVector EC_VALID_PUBLIC_KEY =
    */
   // TODO(bleichen): This can be merged with testModifiedPublic once this is fixed.
   @SuppressWarnings("InsecureCryptoUsage")
-  public void testWrongOrder(String algorithm, ECParameterSpec spec) throws Exception {
+  public void testWrongOrder(String algorithm, ECParameterSpec spec)
+          throws Exception {
+    testWrongOrder(algorithm, spec, false);
+  }
+  @SuppressWarnings("InsecureCryptoUsage")
+  public void testWrongOrder(String algorithm, ECParameterSpec spec, boolean isStrongBox)
+          throws Exception {
     KeyAgreement ka = KeyAgreement.getInstance(algorithm, EXPECTED_PROVIDER_NAME);
     PrivateKey priv = generateECKeyPair(KEY_ALIAS_2,
-                                        new ECGenParameterSpec("secp256r1")).getPrivate();
+                                        new ECGenParameterSpec("secp256r1"), isStrongBox)
+            .getPrivate();
     ECPublicKey pub = (ECPublicKey) generateECKeyPair(KEY_ALIAS_3,
-                                        new ECGenParameterSpec("secp256r1")).getPublic();
+                                        new ECGenParameterSpec("secp256r1"), isStrongBox)
+            .getPublic();
     // Get the shared secret for the unmodified keys.
     ka.init(priv);
     ka.doPhase(pub, true);
@@ -728,6 +770,11 @@ public static final EcPublicKeyTestVector EC_VALID_PUBLIC_KEY =
   public void testWrongOrderEcdhNist() throws Exception {
     testWrongOrder("ECDH", EcUtil.getNistP256Params());
   }
+  @Test
+  public void testWrongOrderEcdhNist_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testWrongOrder("ECDH", EcUtil.getNistP256Params(), true);
+  }
 
   @Test
   @Ignore // Brainpool curves are not supported in AndroidKeyStore.
@@ -750,6 +797,9 @@ public static final EcPublicKeyTestVector EC_VALID_PUBLIC_KEY =
    * occur for example when the private key is close to the order of the curve.
    */
   private void testLargePrivateKey(ECParameterSpec spec) throws Exception {
+    testLargePrivateKey(spec, false);
+  }
+  private void testLargePrivateKey(ECParameterSpec spec, boolean isStrongBox) throws Exception {
     BigInteger order = spec.getOrder();
     KeyPairGenerator keyGen = KeyPairGenerator.getInstance("EC");
     keyGen.initialize(spec);
@@ -764,11 +814,11 @@ public static final EcPublicKeyTestVector EC_VALID_PUBLIC_KEY =
       // This Public key is not pair of priv1, but it is required to create KeyPair to import into
       // AndroidKeyStore, So using dummy public key. 
       PublicKey pub1 = kf.generatePublic(EC_VALID_PUBLIC_KEY.getX509EncodedKeySpec());
-      ka.init(getKeystorePrivateKey(pub1, priv1));
+      ka.init(getKeystorePrivateKey(pub1, priv1, isStrongBox));
       ka.doPhase(pub, true);
       byte[] shared1 = ka.generateSecret();
       PrivateKey priv2 = kf.generatePrivate(spec2);
-      ka.init(getKeystorePrivateKey(pub1, priv2));
+      ka.init(getKeystorePrivateKey(pub1, priv2, isStrongBox));
       ka.doPhase(pub, true);
       byte[] shared2 = ka.generateSecret();
       // The private keys p1 and p2 are equivalent, since only the x-coordinate of the
@@ -786,13 +836,18 @@ public static final EcPublicKeyTestVector EC_VALID_PUBLIC_KEY =
      * not (yet) support imported ECDH keys, so skip the test if this is the case (b/216434270).
      */
     assumeTrue("This test can only test with keymint version 1 and above",
-         TestUtils.getFeatureVersionKeystore(context) >= KeyStoreUtil.KM_VERSION_KEYMINT_1);
+            TestUtils.getFeatureVersionKeystore(context) >= KeyStoreUtil.KM_VERSION_KEYMINT_1);
 
     testLargePrivateKey(EcUtil.getNistP224Params());
     testLargePrivateKey(EcUtil.getNistP256Params());
     testLargePrivateKey(EcUtil.getNistP384Params());
     // This test failed before CVE-2017-10176 was fixed.
     testLargePrivateKey(EcUtil.getNistP521Params());
+  }
+  @Test
+  public void testNistCurveLargePrivateKey_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testLargePrivateKey(EcUtil.getNistP256Params(), true);
   }
 
   @Test
