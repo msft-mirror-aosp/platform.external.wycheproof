@@ -71,13 +71,15 @@ public class CipherInputStreamTest {
     return bytes;
   }
 
-  static SecretKey randomKey(String algorithm, String alias, int keySizeInBytes) throws Exception {
+  static SecretKey randomKey(String algorithm, String alias, int keySizeInBytes,
+                             boolean isStrongBox) throws Exception {
       SecretKeySpec keySpec = new SecretKeySpec(randomBytes(keySizeInBytes), "AES");
       KeyStore keyStore = KeyStoreUtil.saveSecretKeyToKeystore(alias, keySpec,
           new KeyProtection.Builder(KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
                   .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                   .setRandomizedEncryptionRequired(false)
                   .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                  .setIsStrongBoxBacked(isStrongBox)
                   .build());
       // Key imported, obtain a reference to it.
       return (SecretKey) keyStore.getKey(alias, null);
@@ -103,9 +105,9 @@ public class CipherInputStreamTest {
     @SuppressWarnings("InsecureCryptoUsage")
     public TestVector(
         String algorithm, String alias, int keySize,
-        int ivSize, int tagSize, int ptSize, int aadSize) throws Exception {
+        int ivSize, int tagSize, int ptSize, int aadSize, boolean isStrongBox) throws Exception {
       this.algorithm = algorithm;
-      this.key = randomKey(algorithm, alias, keySize);
+      this.key = randomKey(algorithm, alias, keySize, isStrongBox);
       this.params = randomParameters(algorithm, ivSize, tagSize);
       this.pt = randomBytes(ptSize);
       this.aad = randomBytes(aadSize);
@@ -122,7 +124,8 @@ public class CipherInputStreamTest {
       int[] ivSizes,
       int[] tagSizes,
       int[] ptSizes,
-      int[] aadSizes)
+      int[] aadSizes,
+      boolean isStrongBox)
       throws Exception {
     ArrayList<TestVector> result = new ArrayList<TestVector>();
     for (int keySize : keySizes) {
@@ -133,7 +136,7 @@ public class CipherInputStreamTest {
               String keyAlias = "Key-" + keySize + "-" + ivSize + "-" + tagSize +
                                 "-" + ptSize + "-" + aadSize;
               result.add(new TestVector(algorithm, keyAlias, keySize,
-                                        ivSize, tagSize, ptSize, aadSize));
+                                        ivSize, tagSize, ptSize, aadSize, isStrongBox));
             }
           }
         }
@@ -240,26 +243,44 @@ public class CipherInputStreamTest {
 
   @Test
   public void testAesGcm() throws Exception {
+    testAesGcm(false);
+  }
+  @Test
+  public void testAesGcm_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testAesGcm(true);
+  }
+  private void testAesGcm(boolean isStrongBox) throws Exception {
     final int[] keySizes = {16, 32};
     final int[] ivSizes = {12};
     final int[] tagSizes = {12, 16};
     final int[] ptSizes = {0, 8, 16, 65, 8100};
     final int[] aadSizes = {0, 8, 24};
     Iterable<TestVector> v =
-        getTestVectors("AES/GCM/NoPadding", keySizes, ivSizes, tagSizes, ptSizes, aadSizes);
+        getTestVectors("AES/GCM/NoPadding", keySizes, ivSizes,
+                      tagSizes, ptSizes, aadSizes, isStrongBox);
     testEncrypt(v);
     testDecrypt(v);
   }
 
   @Test
   public void testCorruptAesGcm() throws Exception {
+    testCorruptAesGcm(false);
+  }
+  @Test
+  public void testCorruptAesGcm_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testCorruptAesGcm(true);
+  }
+  private void testCorruptAesGcm(boolean isStrongBox) throws Exception {
     final int[] keySizes = {16, 32};
     final int[] ivSizes = {12};
     final int[] tagSizes = {12, 16};
     final int[] ptSizes = {8, 16, 65, 8100};
     final int[] aadSizes = {0, 8, 24};
     Iterable<TestVector> v =
-        getTestVectors("AES/GCM/NoPadding", keySizes, ivSizes, tagSizes, ptSizes, aadSizes);
+        getTestVectors("AES/GCM/NoPadding", keySizes,
+                ivSizes, tagSizes, ptSizes, aadSizes, isStrongBox);
     boolean acceptEmptyPlaintext = true;
     testCorruptDecrypt(v, acceptEmptyPlaintext);
   }
@@ -271,13 +292,22 @@ public class CipherInputStreamTest {
    */
   @Test
   public void testEmptyPlaintext() throws Exception {
+    testEmptyPlaintext(false);
+  }
+  @Test
+  public void testEmptyPlaintext_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testEmptyPlaintext(true);
+  }
+  private void testEmptyPlaintext(boolean isStrongBox) throws Exception {
     final int[] keySizes = {16, 32};
     final int[] ivSizes = {12};
     final int[] tagSizes = {12, 16};
     final int[] ptSizes = {0};
     final int[] aadSizes = {0, 8, 24};
     Iterable<TestVector> v =
-        getTestVectors("AES/GCM/NoPadding", keySizes, ivSizes, tagSizes, ptSizes, aadSizes);
+        getTestVectors("AES/GCM/NoPadding", keySizes,
+                ivSizes, tagSizes, ptSizes, aadSizes, isStrongBox);
     boolean acceptEmptyPlaintext = false;
     testCorruptDecrypt(v, acceptEmptyPlaintext);
   }
@@ -293,7 +323,8 @@ public class CipherInputStreamTest {
     final int[] ptSizes = {0, 8, 16, 65, 8100};
     final int[] aadSizes = {0, 8, 24};
     Iterable<TestVector> v =
-        getTestVectors(algorithm, keySizes, ivSizes, tagSizes, ptSizes, aadSizes);
+        getTestVectors(algorithm, keySizes, ivSizes, tagSizes, ptSizes,
+                aadSizes, /*isStrongBox*/ false);
     testEncrypt(v);
     testDecrypt(v);
     boolean acceptEmptyPlaintext = true;
