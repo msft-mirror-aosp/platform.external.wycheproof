@@ -100,6 +100,9 @@ public class JsonEcdhTest {
    *     ...
    **/
   public void testEcdhComp(String filename) throws Exception {
+    testEcdhComp(filename, false);
+  }
+  public void testEcdhComp(String filename, boolean isStrongBox) throws Exception {
     JsonObject test = JsonUtil.getTestVectors(this.getClass(), filename);
 
     // This test expects test vectors as defined in wycheproof/schemas/ecdh_test_schema.json.
@@ -134,6 +137,7 @@ public class JsonEcdhTest {
 
           KeyStore keyStore = KeyStoreUtil.saveKeysToKeystore(KEY_ALIAS_1, pubKey, privKey,
                                  new KeyProtection.Builder(KeyProperties.PURPOSE_AGREE_KEY)
+                                 .setIsStrongBoxBacked(isStrongBox)
                                  .build());
           KeyAgreement ka = KeyAgreement.getInstance("ECDH", EXPECTED_PROVIDER_NAME);
           PrivateKey keyStorePrivateKey = (PrivateKey) keyStore.getKey(KEY_ALIAS_1, null);
@@ -197,6 +201,12 @@ public class JsonEcdhTest {
   @Test
   public void testSecp256r1() throws Exception {
     testEcdhComp("ecdh_secp256r1_test.json");
+  }
+  @Test
+  @Ignore //TODO Reverify after bug b/215175472 is fixed.
+  public void testSecp256r1_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testEcdhComp("ecdh_secp256r1_test.json", true);
   }
 
   @Test
