@@ -57,13 +57,14 @@ public class RsaSignatureTest {
     KeyStoreUtil.cleanUpKeyStore();
   }
 
-  private static PrivateKey getKeystorePrivateKey(PublicKey pubKey, PrivateKey privKey)
-    throws Exception {
+  private static PrivateKey getKeystorePrivateKey(PublicKey pubKey, PrivateKey privKey,
+                                                  boolean isStrongBox) throws Exception {
     KeyStore keyStore = KeyStoreUtil.saveKeysToKeystore(KEY_ALIAS_1, pubKey, privKey,
                             new KeyProtection.Builder(KeyProperties.PURPOSE_SIGN |
                                 KeyProperties.PURPOSE_VERIFY)
-                            .setDigests(KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA512)
+                            .setDigests(KeyProperties.DIGEST_SHA256)
                             .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
+                            .setIsStrongBoxBacked(isStrongBox)
                             .build());
     return (PrivateKey) keyStore.getKey(KEY_ALIAS_1, null);
   }
@@ -1110,6 +1111,14 @@ public class RsaSignatureTest {
 
   @Test
   public void testBasic() throws Exception {
+    testBasic(false);
+  }
+  @Test
+  public void testBasic_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testBasic(true);
+  }
+  private void testBasic(boolean isStrongBox) throws Exception {
     String algorithm = "SHA256WithRSA";
     String hashAlgorithm = "SHA-256";
     String message = "Hello";
@@ -1125,7 +1134,7 @@ public class RsaSignatureTest {
     Signature signer = Signature.getInstance(algorithm, TestUtil.EXPECTED_CRYPTO_OP_PROVIDER_NAME);
     Signature verifier = Signature.getInstance(algorithm,
                                                 TestUtil.EXPECTED_CRYPTO_OP_PROVIDER_NAME);
-    signer.initSign(getKeystorePrivateKey(pub, priv));
+    signer.initSign(getKeystorePrivateKey(pub, priv, isStrongBox));
     signer.update(messageBytes);
     byte[] signature = signer.sign();
     verifier.initVerify(pub);
@@ -1256,6 +1265,14 @@ public class RsaSignatureTest {
    */
   @Test
   public void testFaultySigner() throws Exception {
+    testFaultySigner(false);
+  }
+  @Test
+  public void testFaultySigner_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testFaultySigner(true);
+  }
+  private void testFaultySigner(boolean isStrongBox) throws Exception {
     BigInteger e = new BigInteger("65537");
     BigInteger d = new BigInteger(
         "1491581187972832788084570222215155297353839087630599492610691218"
@@ -1296,7 +1313,7 @@ public class RsaSignatureTest {
     RSAPublicKeySpec pubKeySpec = new RSAPublicKeySpec(n, e);
     PublicKey pubKey = kf.generatePublic(pubKeySpec);
 
-    signer.initSign(getKeystorePrivateKey(pubKey, validPrivKey));
+    signer.initSign(getKeystorePrivateKey(pubKey, validPrivKey, isStrongBox));
     signer.update(message);
     byte[] signature = signer.sign();
     PrivateKey invalidPrivKey = null;
@@ -1318,6 +1335,7 @@ public class RsaSignatureTest {
               new KeyProtection.Builder(KeyProperties.PURPOSE_SIGN)
                   .setDigests(KeyProperties.DIGEST_SHA256)
                   .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
+                  .setIsStrongBoxBacked(isStrongBox)
                   .build());
     } catch (InvalidKeySpecException | java.security.KeyStoreException ex) {
       // The provider checks the private key and notices a mismatch.
