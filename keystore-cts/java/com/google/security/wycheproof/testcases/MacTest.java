@@ -46,12 +46,10 @@ public class MacTest {
     KeyStoreUtil.cleanUpKeyStore();
   }
 
-  private static Key getKeyStoreSecretKey(byte[] keyMaterial, String algorithm, boolean isStrongBox)
-          throws Exception {
+  private static Key getKeyStoreSecretKey(byte[] keyMaterial, String algorithm) throws Exception {
       KeyStore keyStore = KeyStoreUtil.saveSecretKeyToKeystore(KEY_ALIAS_1,
-                            new SecretKeySpec(keyMaterial, algorithm),
-                            new KeyProtection.Builder(KeyProperties.PURPOSE_SIGN)
-                                    .setIsStrongBoxBacked(isStrongBox).build());
+                            new SecretKeySpec(keyMaterial, algorithm), 
+                            new KeyProtection.Builder(KeyProperties.PURPOSE_SIGN).build());
     return keyStore.getKey(KEY_ALIAS_1, null);
   }
 
@@ -194,9 +192,6 @@ public class MacTest {
   }
 
   public void testMac(String algorithm, int keySize) throws Exception {
-    testMac(algorithm, keySize, false);
-  }
-  public void testMac(String algorithm, int keySize, boolean isStrongBox) throws Exception {
     try {
       Mac.getInstance(algorithm, EXPECTED_PROVIDER_NAME);
     } catch (NoSuchAlgorithmException ex) {
@@ -205,7 +200,7 @@ public class MacTest {
     byte[] key = new byte[keySize];
     SecureRandom rand = new SecureRandom();
     rand.nextBytes(key);
-    testUpdate(algorithm, getKeyStoreSecretKey(key, algorithm, isStrongBox));
+    testUpdate(algorithm, getKeyStoreSecretKey(key, algorithm));
   }
 
   @Test
@@ -221,13 +216,6 @@ public class MacTest {
   @Test
   public void testHmacSha256() throws Exception {
     testMac("HMACSHA256", 32);
-  }
-
-  @Test
-  @Ignore // StrongBox takes very long time to complete this test and CTS timed out (b/242028608), hence ignoring it.
-  public void testHmacSha256_StrongBox() throws Exception {
-    KeyStoreUtil.assumeStrongBox();
-    testMac("HMACSHA256", 32, true);
   }
 
   @Test
@@ -310,15 +298,10 @@ public class MacTest {
    * IMPLEMENTATION RETURNS INCORRECT HASH FOR LARGE SETS OF DATA
    */
   private void testLongMac(
-          String algorithm, String keyhex, String message, long repetitions, String expected)
-          throws Exception {
-    testLongMac(algorithm, keyhex, message, repetitions, expected, false);
-  }
-  private void testLongMac(
-      String algorithm, String keyhex, String message, long repetitions, String expected,
-          boolean isStrongBox) throws Exception {
+      String algorithm, String keyhex, String message, long repetitions, String expected)
+      throws Exception {
 
-    Key key = getKeyStoreSecretKey(TestUtil.hexToBytes(keyhex), algorithm, isStrongBox);
+    Key key = getKeyStoreSecretKey(TestUtil.hexToBytes(keyhex), algorithm);
     byte[] bytes = message.getBytes(UTF_8);
     byte[] mac = null;
     try {
@@ -348,29 +331,18 @@ public class MacTest {
 
   @Test
   public void testLongMacSha256() throws Exception {
-    testLongMacSha256(false);
-  }
-  @Test
-  @Ignore // StrongBox takes very long time to complete this test and CTS timed out (b/242028608), hence ignoring it.
-  public void testLongMacSha256_StrongBox() throws Exception {
-    KeyStoreUtil.assumeStrongBox();
-    testLongMacSha256(true);
-  }
-  private void testLongMacSha256(boolean isStrongBox) throws Exception {
     testLongMac(
         "HMACSHA256",
         "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
         "a",
         2147483647L,
-        "84f213c9bb5b329d547bc31dabed41939754b1af7482365ec74380c45f6ea0a7",
-        isStrongBox);
+        "84f213c9bb5b329d547bc31dabed41939754b1af7482365ec74380c45f6ea0a7");
     testLongMac(
         "HMACSHA256",
         "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
         "a",
         5000000000L,
-        "59a75754df7093fa4339aa618b64b104f153a5b42cc85394fdb8735b13ea684a",
-        isStrongBox);
+        "59a75754df7093fa4339aa618b64b104f153a5b42cc85394fdb8735b13ea684a");
   }
 
   @Test

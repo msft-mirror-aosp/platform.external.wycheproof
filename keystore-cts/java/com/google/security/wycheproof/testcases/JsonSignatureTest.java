@@ -54,12 +54,13 @@ public class JsonSignatureTest {
     KeyStoreUtil.cleanUpKeyStore();
   }
 
-  private static PrivateKey getKeystorePrivateKey(PublicKey pubKey, PrivateKey privKey, String digest,
-                                                  boolean isStrongBox) throws Exception {
+  private static PrivateKey getKeystorePrivateKey(PublicKey pubKey, PrivateKey privKey)
+    throws Exception {
     KeyProtection keyProtection = new KeyProtection.Builder(KeyProperties.PURPOSE_SIGN)
-	      .setDigests(digest)
+	      .setDigests(KeyProperties.DIGEST_SHA1, KeyProperties.DIGEST_SHA224,
+                  KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA384,
+                  KeyProperties.DIGEST_SHA512)
 	      .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
-              .setIsStrongBoxBacked(isStrongBox)
 	      .build();
     KeyStore keyStore =
                        KeyStoreUtil.saveKeysToKeystore(KEY_ALIAS_1, pubKey, privKey, keyProtection);
@@ -262,18 +263,16 @@ public class JsonSignatureTest {
    */
   // This is a false positive, since errorprone cannot track values passed into a method.
   @SuppressWarnings("InsecureCryptoUsage")
-  protected static PrivateKey getPrivateKey(JsonObject object, String algorithm,
-                                            boolean isStrongBox) throws Exception {
+  protected static PrivateKey getPrivateKey(JsonObject object, String algorithm) throws Exception {
     if (algorithm.equals("RSA")) {
       KeyFactory kf = KeyFactory.getInstance(algorithm);
       byte[] encoded = TestUtil.hexToBytes(getString(object, "privateKeyPkcs8"));
       byte[] pubEncoded = TestUtil.hexToBytes(getString(object, "keyDer"));
-      String digest = getString(object, "sha");
       PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(encoded);
       PrivateKey intermediateKey = kf.generatePrivate(keySpec);
       X509EncodedKeySpec x509keySpec = new X509EncodedKeySpec(pubEncoded);
       PublicKey pubKey = kf.generatePublic(x509keySpec);
-      return getKeystorePrivateKey(pubKey, intermediateKey, digest, isStrongBox);
+      return getKeystorePrivateKey(pubKey, intermediateKey);
     } else {
       throw new NoSuchAlgorithmException("Algorithm " + algorithm + " is not supported");
     }
@@ -433,13 +432,8 @@ public class JsonSignatureTest {
    * @param allowSkippingKeys if true then keys that cannot be constructed will not fail the test.
    */
   public void testSigning(
-          String filename, String signatureAlgorithm, Format signatureFormat,
-          boolean allowSkippingKeys) throws Exception {
-    testSigning(filename, signatureAlgorithm, signatureFormat, allowSkippingKeys, false);
-  }
-  public void testSigning(
       String filename, String signatureAlgorithm, Format signatureFormat,
-      boolean allowSkippingKeys, boolean isStrongBox) throws Exception {
+      boolean allowSkippingKeys) throws Exception {
     JsonObject test = JsonUtil.getTestVectors(this.getClass(), filename);
     int cntTests = 0;
     int errors = 0;
@@ -448,7 +442,7 @@ public class JsonSignatureTest {
       JsonObject group = g.getAsJsonObject();
       PrivateKey key;
       try {
-        key = getPrivateKey(group, signatureAlgorithm, isStrongBox);
+        key = getPrivateKey(group, signatureAlgorithm);
       } catch (GeneralSecurityException ex) {
         skippedKeys++;
         continue;
@@ -472,17 +466,13 @@ public class JsonSignatureTest {
           signer.update(message);
           String sig = TestUtil.bytesToHex(signer.sign());
           if (!sig.equals(expectedSig)) {
-            android.util.Log.e("JsonSignatureTest", "Signature mismatch error for test id " + tcid);
             errors++;
           } else {
             cntTests++;
           }
         } catch (InvalidKeyException | SignatureException ex) {
           if (result.equals("valid")) {
-            android.util.Log.e("JsonSignatureTest", "Unexpected exception for test id " + tcid, ex);
-            if (!isStrongBox) {
-              errors++;
-            }
+            errors++;
           }
         }
       }
@@ -735,13 +725,8 @@ public class JsonSignatureTest {
 
   // Testing RSA PKCS#1 v1.5 signatures.
   @Test
-  public void testRsaSigning() throws Exception {
+  public void testRsaSigning() throws Exception { 
     testSigning("rsa_sig_gen_misc_test.json", "RSA", Format.RAW, true);
-  }
-  @Test
-  public void testRsaSigning_StrongBox() throws Exception {
-    KeyStoreUtil.assumeStrongBox();
-    testSigning("rsa_sig_gen_misc_test.json", "RSA", Format.RAW, true, true);
   }
 
   @Test

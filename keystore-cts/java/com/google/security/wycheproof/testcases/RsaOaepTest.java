@@ -57,8 +57,7 @@ public class RsaOaepTest {
   }
 
   private static PrivateKey saveKeyPairToKeystoreAndReturnPrivateKey(PublicKey pubKey,
-        PrivateKey privKey, String digest, String mgfDigest, boolean isStrongBox)
-          throws Exception {
+        PrivateKey privKey) throws Exception {
     return (PrivateKey) KeyStoreUtil.saveKeysToKeystore(KEY_ALIAS_1, pubKey, privKey,
                         new KeyProtection.Builder(KeyProperties.PURPOSE_SIGN |
                                 KeyProperties.PURPOSE_VERIFY |
@@ -66,8 +65,9 @@ public class RsaOaepTest {
                                 KeyProperties.PURPOSE_DECRYPT)
                           .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1,
                                 KeyProperties.ENCRYPTION_PADDING_RSA_OAEP)
-                          .setDigests(digest, mgfDigest)
-                          .setIsStrongBoxBacked(isStrongBox)
+                          .setDigests(KeyProperties.DIGEST_SHA1, KeyProperties.DIGEST_SHA224,
+                                KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA384,
+                                KeyProperties.DIGEST_SHA512)
                           .build())
                       .getKey(KEY_ALIAS_1, null);
   }
@@ -162,8 +162,7 @@ public class RsaOaepTest {
    */
   // This is a false positive, since errorprone cannot track values passed into a method.
   @SuppressWarnings("InsecureCryptoUsage")
-  protected static PrivateKey getPrivateKey(JsonObject object, boolean isStrongBox)
-          throws Exception {
+  protected static PrivateKey getPrivateKey(JsonObject object) throws Exception {
     KeyFactory kf;
     kf = KeyFactory.getInstance("RSA");
     byte[] encoded = TestUtil.hexToBytes(getString(object, "privateKeyPkcs8"));
@@ -172,17 +171,7 @@ public class RsaOaepTest {
     BigInteger modulus = new BigInteger(TestUtil.hexToBytes(object.get("n").getAsString()));
     BigInteger exponent = new BigInteger(TestUtil.hexToBytes(object.get("e").getAsString()));
     PublicKey pubKey = kf.generatePublic(new RSAPublicKeySpec(modulus, exponent));
-    String digest = getString(object, "sha");
-    String mgfDigest = getString(object, "mgfSha");
-    int keysize = object.get("keysize").getAsInt();
-    if (isStrongBox
-            && (!KeyStoreUtil.isStrongBoxSupportDigest(digest)
-                || !KeyStoreUtil.isStrongBoxSupportDigest(mgfDigest)
-                || !KeyStoreUtil.isStrongBoxSupportKeySize(keysize))) {
-      throw new UnsupportedKeyParametersException();
-    }
-    return saveKeyPairToKeystoreAndReturnPrivateKey(pubKey, intermediateKey, digest, mgfDigest,
-            isStrongBox);
+    return saveKeyPairToKeystoreAndReturnPrivateKey(pubKey, intermediateKey);
   }
 
   protected static String getOaepAlgorithmName(JsonObject group) throws Exception {
@@ -198,8 +187,7 @@ public class RsaOaepTest {
     String mgfSha = getString(group, "mgfSha");
     PSource p = PSource.PSpecified.DEFAULT;
     if (test.has("label") && !TextUtils.isEmpty(getString(test, "label"))) {
-      // p = new PSource.PSpecified(getBytes(test, "label"));
-      throw new UnsupportedKeyParametersException();
+      p = new PSource.PSpecified(getBytes(test, "label"));
     }
     return new OAEPParameterSpec(sha, mgf, new MGF1ParameterSpec(mgfSha), p);
   }
@@ -247,13 +235,6 @@ public class RsaOaepTest {
    *        specified.
    **/
   public void testOaep(String filename, boolean allowSkippingKeys)
-          throws Exception {
-    testOaep(filename, allowSkippingKeys, false);
-  }
-
-  private static class UnsupportedKeyParametersException extends Exception { }
-
-  public void testOaep(String filename, boolean allowSkippingKeys, boolean isStrongBox)
       throws Exception {
     JsonObject test = JsonUtil.getTestVectors(this.getClass(), filename);
 
@@ -277,18 +258,7 @@ public class RsaOaepTest {
     int skippedKeys = 0;
     for (JsonElement g : test.getAsJsonArray("testGroups")) {
       JsonObject group = g.getAsJsonObject();
-      PrivateKey key = null;
-      try {
-        key = getPrivateKey(group, isStrongBox);
-      } catch (UnsupportedKeyParametersException e) {
-        skippedKeys++;
-        if (isStrongBox) {
-          continue;
-        }
-        if (!allowSkippingKeys) {
-          throw e;
-        }
-      }
+      PrivateKey key = getPrivateKey(group);
       String algorithm = getOaepAlgorithmName(group);
       Cipher decrypter = Cipher.getInstance(algorithm, EXPECTED_PROVIDER_NAME);
       for (JsonElement t : group.getAsJsonArray("tests")) {
@@ -296,13 +266,7 @@ public class RsaOaepTest {
         JsonObject testcase = t.getAsJsonObject();
         int tcid = testcase.get("tcId").getAsInt();
         String messageHex = TestUtil.bytesToHex(getBytes(testcase, "msg"));
-        OAEPParameterSpec params;
-        try {
-          params = getOaepParameters(group, testcase);
-        } catch (UnsupportedKeyParametersException e) {
-          // TODO This try catch block should be removed once issue b/229183581 is fixed.
-          continue;
-        }
+        OAEPParameterSpec params = getOaepParameters(group, testcase);
         byte[] ciphertext = getBytes(testcase, "ct");
         String ciphertextHex = TestUtil.bytesToHex(ciphertext);
         String result = getString(testcase, "result");
@@ -332,13 +296,13 @@ public class RsaOaepTest {
           String decryptedHex = TestUtil.bytesToHex(decrypted);
           if (result.equals("invalid")) {
             Log.e(TAG,
-                String.format("Invalid ciphertext decrypted. filename:%s tcId:%d expected:%s" +
-                              " decrypted:%s\n", filename, tcid, messageHex, decryptedHex));
+                String.format("Invalid ciphertext decrypted. filename:%s tcId:%d expected:%s decrypted:%s\n",
+                filename, tcid, messageHex, decryptedHex));
              errors++;
           } else if (!decryptedHex.equals(messageHex)) {
             Log.e(TAG,
-                String.format("Incorrect decryption. filename:%s tcId:%d expected:%s" +
-                              " decrypted:%s\n", filename, tcid, messageHex, decryptedHex));
+                String.format("Incorrect decryption. filename:%s tcId:%d expected:%s decrypted:%s\n",
+                filename, tcid, messageHex, decryptedHex));
              errors++;
           }
         }
@@ -347,120 +311,118 @@ public class RsaOaepTest {
     assertEquals(0, errors);
     if (skippedKeys > 0) {
       Log.d(TAG, "RSAES-OAEP: file:" + filename + " skipped key:" + skippedKeys);
-      assertTrue(!allowSkippingKeys);
+      assertTrue(allowSkippingKeys);
     } else {
       assertEquals(numTests, cntTests);
     }
   }
 
   @Test
+  @Ignore //TODO Reverify after bugs b/229182999 and b/229183581 are fixed.
   public void testRsaOaep2048Sha1Mgf1Sha1() throws Exception {
    testOaep("rsa_oaep_2048_sha1_mgf1sha1_test.json", false);
   }
 
   @Test
-  public void testRsaOaep2048Sha1Mgf1Sha1_StrongBox() throws Exception {
-    testOaep("rsa_oaep_2048_sha1_mgf1sha1_test.json", true);
-  }
-
-  @Test
+  @Ignore //TODO Reverify after bugs b/229182999 and b/229183581 are fixed.
   public void testRsaOaep2048Sha224Mgf1Sha1() throws Exception {
    testOaep("rsa_oaep_2048_sha224_mgf1sha1_test.json", false);
   }
 
   @Test
+  @Ignore //TODO Reverify after bugs b/229182999 and b/229183581 are fixed.
   public void testRsaOaep2048Sha224Mgf1Sha224() throws Exception {
    testOaep("rsa_oaep_2048_sha224_mgf1sha224_test.json", false);
   }
 
   @Test
+  @Ignore //TODO Reverify after bugs b/229182999 and b/229183581 are fixed.
   public void testRsaOaep2048Sha256Mgf1Sha1() throws Exception {
-    testOaep("rsa_oaep_2048_sha256_mgf1sha1_test.json", false);
-  }
-  @Test
-  public void testRsaOaep2048Sha256Mgf1Sha1_StrongBox() throws Exception {
-    KeyStoreUtil.assumeStrongBox();
-    testOaep("rsa_oaep_2048_sha256_mgf1sha1_test.json", false, true);
+   testOaep("rsa_oaep_2048_sha256_mgf1sha1_test.json", false);
   }
 
   @Test
+  @Ignore //TODO Reverify after bugs b/229182999 and b/229183581 are fixed.
   public void testRsaOaep2048Sha256Mgf1Sha256() throws Exception {
-    testOaep("rsa_oaep_2048_sha256_mgf1sha256_test.json", false);
-  }
-  @Test
-  public void testRsaOaep2048Sha256Mgf1Sha256_StrongBox() throws Exception {
-    KeyStoreUtil.assumeStrongBox();
-    testOaep("rsa_oaep_2048_sha256_mgf1sha256_test.json", false, true);
+   testOaep("rsa_oaep_2048_sha256_mgf1sha256_test.json", false);
   }
 
   @Test
+  @Ignore //TODO Reverify after bugs b/229182999 and b/229183581 are fixed.
   public void testRsaOaep2048Sha384Mgf1Sha1() throws Exception {
    testOaep("rsa_oaep_2048_sha384_mgf1sha1_test.json", false);
   }
 
   @Test
+  @Ignore //TODO Reverify after bugs b/229182999 and b/229183581 are fixed.
   public void testRsaOaep2048Sha384Mgf1Sha384() throws Exception {
    testOaep("rsa_oaep_2048_sha384_mgf1sha384_test.json", false);
   }
 
   @Test
+  @Ignore //TODO Reverify after bugs b/229182999 and b/229183581 are fixed.
   public void testRsaOaep2048Sha512Mgf1Sha1() throws Exception {
    testOaep("rsa_oaep_2048_sha512_mgf1sha1_test.json", false);
   }
 
   @Test
+  @Ignore //TODO Reverify after bugs b/229182999 and b/229183581 are fixed.
   public void testRsaOaep2048Sha512Mgf1Sha512() throws Exception {
    testOaep("rsa_oaep_2048_sha512_mgf1sha512_test.json", false);
   }
 
   @Test
+  @Ignore //TODO Reverify after bugs b/229182999 and b/229183581 are fixed.
   public void testRsaOaep3072Sha256Mgf1Sha1() throws Exception {
    testOaep("rsa_oaep_3072_sha256_mgf1sha1_test.json", false);
   }
 
   @Test
+  @Ignore //TODO Reverify after bugs b/229182999 and b/229183581 are fixed.
   public void testRsaOaep3072Sha256Mgf1Sha256() throws Exception {
    testOaep("rsa_oaep_3072_sha256_mgf1sha256_test.json", false);
   }
 
   @Test
+  @Ignore //TODO Reverify after bugs b/229182999 and b/229183581 are fixed.
   public void testRsaOaep3072Sha512Mgf1Sha1() throws Exception {
    testOaep("rsa_oaep_3072_sha512_mgf1sha1_test.json", false);
   }
 
   @Test
+  @Ignore //TODO Reverify after bugs b/229182999 and b/229183581 are fixed.
   public void testRsaOaep3072Sha512Mgf1Sha512() throws Exception {
    testOaep("rsa_oaep_3072_sha512_mgf1sha512_test.json", false);
   }
 
   @Test
+  @Ignore //TODO Reverify after bugs b/229182999 and b/229183581 are fixed.
   public void testRsaOaep4096Sha256Mgf1Sha1() throws Exception {
    testOaep("rsa_oaep_4096_sha256_mgf1sha1_test.json", false);
   }
 
   @Test
+  @Ignore //TODO Reverify after bugs b/229182999 and b/229183581 are fixed.
   public void testRsaOaep4096Sha256Mgf1Sha256() throws Exception {
    testOaep("rsa_oaep_4096_sha256_mgf1sha256_test.json", false);
   }
 
   @Test
+  @Ignore //TODO Reverify after bugs b/229182999 and b/229183581 are fixed.
   public void testRsaOaep4096Sha512Mgf1Sha1() throws Exception {
    testOaep("rsa_oaep_4096_sha512_mgf1sha1_test.json", false);
   }
 
   @Test
+  @Ignore //TODO Reverify after bugs b/229182999 and b/229183581 are fixed.
   public void testRsaOaep4096Sha512Mgf1Sha512() throws Exception {
    testOaep("rsa_oaep_4096_sha512_mgf1sha512_test.json", false);
   }
 
   @Test
+  @Ignore //TODO Reverify after bugs b/229182999 and b/229183581 are fixed.
   public void testRsaOaepMisc() throws Exception {
-    testOaep("rsa_oaep_misc_test.json", false);
-  }
-  @Test
-  public void testRsaOaepMisc_StrongBox() throws Exception {
-   KeyStoreUtil.assumeStrongBox();
-   testOaep("rsa_oaep_misc_test.json", false, true);
+   testOaep("rsa_oaep_misc_test.json", false);
   }
 }
 

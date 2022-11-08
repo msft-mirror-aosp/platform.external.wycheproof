@@ -89,7 +89,7 @@ public class JsonAeadTest {
    * @throws Exception if the initialization failed.
    */ 
   protected static Cipher getInitializedCipher(
-      String algorithm, int opmode, byte[] key, byte[] iv, int tagSize, boolean isStrongBox)
+      String algorithm, int opmode, byte[] key, byte[] iv, int tagSize)
       throws Exception {
     Cipher cipher = Cipher.getInstance(algorithm, EXPECTED_CRYPTO_PROVIDER_NAME);
     if (algorithm.equalsIgnoreCase("AES/GCM/NoPadding")) {
@@ -99,7 +99,6 @@ public class JsonAeadTest {
                   .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                   .setRandomizedEncryptionRequired(false)
                   .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                  .setIsStrongBoxBacked(isStrongBox)
                   .build());
       // Key imported, obtain a reference to it.
       SecretKey keyStoreKey = (SecretKey) keyStore.getKey(KEY_ALIAS_1, null);
@@ -153,9 +152,6 @@ public class JsonAeadTest {
   // This is a false positive, since errorprone cannot track values passed into a method.
   @SuppressWarnings("InsecureCryptoUsage")
   public void testAead(String filename, String algorithm) throws Exception {
-    testAead(filename, algorithm, false);
-  }
-  public void testAead(String filename, String algorithm, boolean isStrongBox) throws Exception {
     // Version number have the format major.minor[.subversion].
     // Versions before 1.0 are experimental and  use formats that are expected to change.
     // Versions after 1.0 change the major number if the format changes and change
@@ -207,8 +203,7 @@ public class JsonAeadTest {
         // Test encryption
         Cipher cipher;
         try {
-          cipher = getInitializedCipher(algorithm, Cipher.ENCRYPT_MODE, key, iv, tagSize,
-                    isStrongBox);
+          cipher = getInitializedCipher(algorithm, Cipher.ENCRYPT_MODE, key, iv, tagSize);
         } catch (GeneralSecurityException ex) {
           // Some libraries restrict key size, iv size and tag size.
           // Because of the initialization of the cipher might fail.
@@ -239,8 +234,7 @@ public class JsonAeadTest {
         // Test decryption
         Cipher decCipher;
         try {
-          decCipher = getInitializedCipher(algorithm, Cipher.DECRYPT_MODE, key, iv, tagSize,
-                                          isStrongBox);
+          decCipher = getInitializedCipher(algorithm, Cipher.DECRYPT_MODE, key, iv, tagSize);
         } catch (GeneralSecurityException ex) {
           errors++;
           continue;
@@ -270,11 +264,6 @@ public class JsonAeadTest {
   @Test
   public void testAesGcm() throws Exception {
     testAead("aes_gcm_test.json", "AES/GCM/NoPadding");
-  }
-  @Test
-  public void testAesGcm_StrongBox() throws Exception {
-    KeyStoreUtil.assumeStrongBox();
-    testAead("aes_gcm_test.json", "AES/GCM/NoPadding", true);
   }
 
   @Test

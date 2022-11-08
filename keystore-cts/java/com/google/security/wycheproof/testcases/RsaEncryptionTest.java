@@ -77,8 +77,7 @@ public class RsaEncryptionTest {
    */
   // This is a false positive, since errorprone cannot track values passed into a method.
   @SuppressWarnings("InsecureCryptoUsage")
-  protected static PrivateKey getPrivateKey(JsonObject object, boolean isStrongBox)
-          throws Exception {
+  protected static PrivateKey getPrivateKey(JsonObject object) throws Exception {
     KeyFactory kf;
     kf = KeyFactory.getInstance("RSA");
     byte[] encoded = TestUtil.hexToBytes(object.get("privateKeyPkcs8").getAsString());
@@ -91,7 +90,6 @@ public class RsaEncryptionTest {
     KeyStore keyStore = KeyStoreUtil.saveKeysToKeystore(KEY_ALIAS_SIG, pubKey, intermediateKey,
                         new KeyProtection.Builder(KeyProperties.PURPOSE_DECRYPT)
                           .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1)
-                          .setIsStrongBoxBacked(isStrongBox)
                           .build());
     return (PrivateKey) keyStore.getKey(KEY_ALIAS_SIG, null);
   }
@@ -145,10 +143,6 @@ public class RsaEncryptionTest {
    */
   @SuppressWarnings("InsecureCryptoUsage")
   public void testDecryption(String filename) throws Exception {
-    testDecryption(filename, false);
-  }
-  @SuppressWarnings("InsecureCryptoUsage")
-  public void testDecryption(String filename, boolean isStrongBox) throws Exception {
     JsonObject test = JsonUtil.getTestVectors(this.getClass(), filename);
     // Padding oracle attacks become simpler when the decryption leaks detailed information about
     // invalid paddings. Hence implementations are expected to not include such information in the
@@ -163,7 +157,7 @@ public class RsaEncryptionTest {
     Cipher decrypter = Cipher.getInstance("RSA/ECB/PKCS1Padding", EXPECTED_PROVIDER_NAME);
     for (JsonElement g : test.getAsJsonArray("testGroups")) {
       JsonObject group = g.getAsJsonObject();
-      PrivateKey key = getPrivateKey(group, isStrongBox);
+      PrivateKey key = getPrivateKey(group);
       for (JsonElement t : group.getAsJsonArray("tests")) {
         JsonObject testcase = t.getAsJsonObject();
         int tcid = testcase.get("tcId").getAsInt();
@@ -214,11 +208,6 @@ public class RsaEncryptionTest {
   @Test
   public void testDecryption2048() throws Exception {
     testDecryption("rsa_pkcs1_2048_test.json");
-  }
-  @Test
-  public void testDecryption2048_StrongBox() throws Exception {
-    KeyStoreUtil.assumeStrongBox();
-    testDecryption("rsa_pkcs1_2048_test.json", true);
   }
 
   @Test

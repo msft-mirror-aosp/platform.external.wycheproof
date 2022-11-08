@@ -13,7 +13,6 @@
  */
 package android.keystore.cts.util;
 
-import android.content.Context;
 import android.security.keystore.KeyProtection;
 import android.keystore.cts.util.TestUtils;
 import androidx.test.core.app.ApplicationProvider;
@@ -89,24 +88,6 @@ public class KeyStoreUtil {
 
     public static int getFeatureVersionKeystore() {
        return TestUtils.getFeatureVersionKeystore(ApplicationProvider.getApplicationContext());
-    }
-
-    public static boolean hasStrongBox() {
-        Context context = ApplicationProvider.getApplicationContext();
-        return TestUtils.hasStrongBox(context);
-    }
-
-    public static void assumeStrongBox() {
-        TestUtils.assumeStrongBox();
-    }
-
-    public static boolean isStrongBoxSupportDigest(String digest) {
-        return digest.equalsIgnoreCase("sha-1")
-                || digest.equalsIgnoreCase("sha-256");
-    }
-
-    public static boolean isStrongBoxSupportKeySize(int keySize) {
-        return keySize == 1024 || keySize == 2048;
     }
 
     public static X509Certificate createCertificate(

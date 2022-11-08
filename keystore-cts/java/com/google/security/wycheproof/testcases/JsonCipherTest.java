@@ -74,10 +74,9 @@ public class JsonCipherTest {
    * @param opmode either Cipher.ENCRYPT_MODE or Cipher.DECRYPT_MODE
    * @param key raw key bytes
    * @param iv the initialisation vector
-   * @param isStrongBox whether key should store in StrongBox or not
    */
-  protected static void initCipher(Cipher cipher, String algorithm, int opmode,
-                                   byte[] key, byte[] iv, boolean isStrongBox) throws Exception {
+  protected static void initCipher(
+      Cipher cipher, String algorithm, int opmode, byte[] key, byte[] iv) throws Exception {
     SecretKeySpec keySpec = null;
     if (algorithm.startsWith("AES/")) {
       keySpec = new SecretKeySpec(key, "AES");
@@ -90,7 +89,6 @@ public class JsonCipherTest {
                  .setBlockModes(KeyProperties.BLOCK_MODE_CBC)
                  .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_PKCS7)
                  .setRandomizedEncryptionRequired(false)
-                  .setIsStrongBoxBacked(isStrongBox)
                  .build());
     // Key imported, obtain a reference to it.
     SecretKey keyStoreKey = (SecretKey) keyStore.getKey(KEY_ALIAS_1, null);
@@ -126,10 +124,6 @@ public class JsonCipherTest {
   // This is a false positive, since errorprone cannot track values passed into a method.
   @SuppressWarnings("InsecureCryptoUsage")
   public void testCipher(String filename, String algorithm) throws Exception {
-    testCipher(filename, algorithm, false);
-  }
-  @SuppressWarnings("InsecureCryptoUsage")
-  public void testCipher(String filename, String algorithm, boolean isStrongBox) throws Exception {
     // Testing with old test vectors may a reason for a test failure.
     // Version number have the format major.minor[status].
     // Versions before 1.0 are experimental and  use formats that are expected to change.
@@ -170,7 +164,7 @@ public class JsonCipherTest {
 
         // Test encryption
         try {
-          initCipher(cipher, algorithm, Cipher.ENCRYPT_MODE, key, iv, isStrongBox);
+          initCipher(cipher, algorithm, Cipher.ENCRYPT_MODE, key, iv);
         } catch (GeneralSecurityException ex) {
           // Some libraries restrict key size, iv size and tag size.
           // Because of the initialization of the cipher might fail.
@@ -201,7 +195,7 @@ public class JsonCipherTest {
         // However, all the test vectors in Wycheproof are constructed such that they have
         // invalid padding. If this changes then the test below is too strict.
         try {
-          initCipher(cipher, algorithm, Cipher.DECRYPT_MODE, key, iv, isStrongBox);
+          initCipher(cipher, algorithm, Cipher.DECRYPT_MODE, key, iv);
         } catch (GeneralSecurityException ex) {
           errors++;
           continue;
@@ -244,16 +238,9 @@ public class JsonCipherTest {
   }
 
   @Test
-  public void testAesCbcPkcs7() throws Exception {
+  public void testAesCbcPkcs5() throws Exception {
     // AndroidKeyStore only suuport AES/CBC/PKCS7Padding algorithm,
     // so it is used instead of PKCS5Padding
     testCipher("aes_cbc_pkcs5_test.json", "AES/CBC/PKCS7Padding");
-  }
-  @Test
-  public void testAesCbcPkcs7_StrongBox() throws Exception {
-    // AndroidKeyStore only suuport AES/CBC/PKCS7Padding algorithm,
-    // so it is used instead of PKCS5Padding
-    KeyStoreUtil.assumeStrongBox();
-    testCipher("aes_cbc_pkcs5_test.json", "AES/CBC/PKCS7Padding", true);
   }
 }
