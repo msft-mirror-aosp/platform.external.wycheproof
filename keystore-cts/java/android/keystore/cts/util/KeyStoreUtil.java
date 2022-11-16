@@ -15,7 +15,6 @@ package android.keystore.cts.util;
 
 import android.content.Context;
 import android.security.keystore.KeyProtection;
-import android.keystore.cts.util.TestUtils;
 import androidx.test.core.app.ApplicationProvider;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
@@ -85,10 +84,6 @@ public class KeyStoreUtil {
             String alias = aliases.nextElement();
             keyStore.deleteEntry(alias);
         }
-    }
-
-    public static int getFeatureVersionKeystore() {
-       return TestUtils.getFeatureVersionKeystore(ApplicationProvider.getApplicationContext());
     }
 
     public static boolean hasStrongBox() {
