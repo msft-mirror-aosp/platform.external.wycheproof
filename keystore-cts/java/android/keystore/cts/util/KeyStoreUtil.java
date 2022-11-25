@@ -101,7 +101,7 @@ public class KeyStoreUtil {
     }
 
     public static boolean isStrongBoxSupportKeySize(int keySize) {
-        return keySize == 1024 || keySize == 2048;
+        return keySize == 2048;
     }
 
     public static X509Certificate createCertificate(
