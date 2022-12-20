@@ -255,6 +255,9 @@ public class RsaOaepTest {
 
   public void testOaep(String filename, boolean allowSkippingKeys, boolean isStrongBox)
       throws Exception {
+    if (isStrongBox) {
+      KeyStoreUtil.assumeStrongBox();
+    }
     JsonObject test = JsonUtil.getTestVectors(this.getClass(), filename);
 
     // Compares the expected and actual JSON schema of the test vector file.
@@ -360,7 +363,7 @@ public class RsaOaepTest {
 
   @Test
   public void testRsaOaep2048Sha1Mgf1Sha1_StrongBox() throws Exception {
-    testOaep("rsa_oaep_2048_sha1_mgf1sha1_test.json", true);
+    testOaep("rsa_oaep_2048_sha1_mgf1sha1_test.json", true, true);
   }
 
   @Test
@@ -379,7 +382,6 @@ public class RsaOaepTest {
   }
   @Test
   public void testRsaOaep2048Sha256Mgf1Sha1_StrongBox() throws Exception {
-    KeyStoreUtil.assumeStrongBox();
     testOaep("rsa_oaep_2048_sha256_mgf1sha1_test.json", false, true);
   }
 
@@ -389,7 +391,6 @@ public class RsaOaepTest {
   }
   @Test
   public void testRsaOaep2048Sha256Mgf1Sha256_StrongBox() throws Exception {
-    KeyStoreUtil.assumeStrongBox();
     testOaep("rsa_oaep_2048_sha256_mgf1sha256_test.json", false, true);
   }
 
@@ -459,7 +460,6 @@ public class RsaOaepTest {
   }
   @Test
   public void testRsaOaepMisc_StrongBox() throws Exception {
-   KeyStoreUtil.assumeStrongBox();
    testOaep("rsa_oaep_misc_test.json", false, true);
   }
 }
