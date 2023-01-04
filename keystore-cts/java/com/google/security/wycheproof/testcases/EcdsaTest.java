@@ -195,6 +195,9 @@ public class EcdsaTest {
     return testParameters(algorithm, curve, false);
   }
   boolean testParameters(String algorithm, String curve, boolean isStrongBox) throws Exception {
+    if (isStrongBox) {
+      KeyStoreUtil.assumeStrongBox();
+    }
     String message = "123400";
 
     KeyPairGenerator keyGen = KeyPairGenerator.getInstance("EC");
@@ -245,7 +248,6 @@ public class EcdsaTest {
   }
   @Test
   public void testBasic_StrongBox() throws Exception {
-    KeyStoreUtil.assumeStrongBox();
     String algorithm = "SHA256WithECDSA";
     String curve = "secp256r1";
     assertTrue(testParameters(algorithm, curve, true));
@@ -257,6 +259,9 @@ public class EcdsaTest {
   }
   public void testBias(String algorithm, String curve,
                        boolean isStrongBox) throws Exception {
+    if (isStrongBox) {
+      KeyStoreUtil.assumeStrongBox();
+    }
     Signature signer = Signature.getInstance(algorithm, EXPECTED_PROVIDER_NAME);
     KeyPairGenerator keyGen = KeyPairGenerator.getInstance("EC");
     keyGen.initialize(new ECGenParameterSpec(curve));
@@ -364,7 +369,6 @@ public class EcdsaTest {
 
   @Test
   public void testBiasSecp521r1_StrongBox() throws Exception {
-    KeyStoreUtil.assumeStrongBox();
     testBias("SHA256WithECDSA", "secp256r1", true);
   }
 
@@ -398,7 +402,11 @@ public class EcdsaTest {
   public void testNullRandom(String algorithm, String curve) throws Exception {
     testNullRandom(algorithm, curve, false);
   }
-  public void testNullRandom(String algorithm, String curve, boolean isStrongBox) throws Exception {
+  public void testNullRandom(String algorithm, String curve, boolean isStrongBox)
+          throws Exception {
+    if (isStrongBox) {
+      KeyStoreUtil.assumeStrongBox();
+    }
     int samples = 8;
     Signature signer = Signature.getInstance(algorithm);
     KeyPairGenerator keyGen = KeyPairGenerator.getInstance("EC");
