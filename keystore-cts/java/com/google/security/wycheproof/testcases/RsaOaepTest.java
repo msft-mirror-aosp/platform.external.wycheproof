@@ -15,6 +15,7 @@ package com.google.security.wycheproof;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -196,6 +197,11 @@ public class RsaOaepTest {
     String sha = getString(group, "sha");
     String mgf = getString(group, "mgf");
     String mgfSha = getString(group, "mgfSha");
+    // mgfDigest other than SHA-1 are supported from KeyMint V1 and above.
+    if (!mgfSha.equalsIgnoreCase("SHA-1")) {
+      assumeTrue("This test is valid for KeyMint version 1 and above.",
+              KeyStoreUtil.getFeatureVersionKeystore() >= KeyStoreUtil.KM_VERSION_KEYMINT_1);
+    }
     PSource p = PSource.PSpecified.DEFAULT;
     if (test.has("label") && !TextUtils.isEmpty(getString(test, "label"))) {
       // p = new PSource.PSpecified(getBytes(test, "label"));
