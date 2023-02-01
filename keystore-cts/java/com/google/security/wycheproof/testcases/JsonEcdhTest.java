@@ -88,6 +88,9 @@ public class JsonEcdhTest {
    *     ...
    **/
   public void testEcdhComp(String filename) throws Exception {
+    testEcdhComp(filename, false);
+  }
+  public void testEcdhComp(String filename, boolean isStrongBox) throws Exception {
     JsonObject test = JsonUtil.getTestVectors(this.getClass(), filename);
 
     // This test expects test vectors as defined in wycheproof/schemas/ecdh_test_schema.json.
@@ -122,6 +125,7 @@ public class JsonEcdhTest {
 
           KeyStore keyStore = KeyStoreUtil.saveKeysToKeystore(KEY_ALIAS_1, pubKey, privKey,
                                  new KeyProtection.Builder(KeyProperties.PURPOSE_AGREE_KEY)
+                                 .setIsStrongBoxBacked(isStrongBox)
                                  .build());
           KeyAgreement ka = KeyAgreement.getInstance("ECDH", EXPECTED_PROVIDER_NAME);
           PrivateKey keyStorePrivateKey = (PrivateKey) keyStore.getKey(KEY_ALIAS_1, null);
@@ -156,6 +160,8 @@ public class JsonEcdhTest {
             passedTests++;
           }
         } catch (InvalidKeySpecException | InvalidKeyException | NoSuchAlgorithmException ex) {
+          Log.e(TAG,
+                  "Test vector with tcId:" + tcid + " comment:" + comment + " throws:" + ex.toString());
           // These are the exception that we expect to see when a curve is not implemented
           // or when a key is not valid.
           if (result.equals("valid")) {
@@ -172,29 +178,31 @@ public class JsonEcdhTest {
       }
     }
     assertEquals(0, errors);
-    assertEquals(numTests, passedTests);
+    assertEquals(numTests, passedTests + rejectedTests);
   }
 
   @Test
-  @Ignore //TODO Reverify after bug b/215175472 is fixed.
   public void testSecp224r1() throws Exception {
     testEcdhComp("ecdh_secp224r1_test.json");
   }
 
   @Test
-  @Ignore //TODO Reverify after bug b/215175472 is fixed.
   public void testSecp256r1() throws Exception {
     testEcdhComp("ecdh_secp256r1_test.json");
   }
-
   @Test
   @Ignore //TODO Reverify after bug b/215175472 is fixed.
+  public void testSecp256r1_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testEcdhComp("ecdh_secp256r1_test.json", true);
+  }
+
+  @Test
   public void testSecp384r1() throws Exception {
     testEcdhComp("ecdh_secp384r1_test.json");
   }
 
   @Test
-  @Ignore //TODO Reverify after bug b/215175472 is fixed.
   public void testSecp521r1() throws Exception {
     testEcdhComp("ecdh_secp521r1_test.json");
   }

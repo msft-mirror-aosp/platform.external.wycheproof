@@ -13,7 +13,10 @@
  */
 package android.keystore.cts.util;
 
+import android.content.Context;
 import android.security.keystore.KeyProtection;
+import android.keystore.cts.util.TestUtils;
+import androidx.test.core.app.ApplicationProvider;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.cert.X509CertificateHolder;
@@ -82,6 +85,28 @@ public class KeyStoreUtil {
             String alias = aliases.nextElement();
             keyStore.deleteEntry(alias);
         }
+    }
+
+    public static int getFeatureVersionKeystore() {
+        return TestUtils.getFeatureVersionKeystore(ApplicationProvider.getApplicationContext());
+    }
+
+    public static boolean hasStrongBox() {
+        Context context = ApplicationProvider.getApplicationContext();
+        return TestUtils.hasStrongBox(context);
+    }
+
+    public static void assumeStrongBox() {
+        TestUtils.assumeStrongBox();
+    }
+
+    public static boolean isStrongBoxSupportDigest(String digest) {
+        return digest.equalsIgnoreCase("sha-1")
+                || digest.equalsIgnoreCase("sha-256");
+    }
+
+    public static boolean isStrongBoxSupportKeySize(int keySize) {
+        return keySize == 2048;
     }
 
     public static X509Certificate createCertificate(
