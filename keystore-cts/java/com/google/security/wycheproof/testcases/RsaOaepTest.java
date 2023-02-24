@@ -15,6 +15,7 @@ package com.google.security.wycheproof;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -196,6 +197,11 @@ public class RsaOaepTest {
     String sha = getString(group, "sha");
     String mgf = getString(group, "mgf");
     String mgfSha = getString(group, "mgfSha");
+    // mgfDigest other than SHA-1 are supported from KeyMint V1 and above.
+    if (!mgfSha.equalsIgnoreCase("SHA-1")) {
+      assumeTrue("This test is valid for KeyMint version 1 and above.",
+              KeyStoreUtil.getFeatureVersionKeystore() >= KeyStoreUtil.KM_VERSION_KEYMINT_1);
+    }
     PSource p = PSource.PSpecified.DEFAULT;
     if (test.has("label") && !TextUtils.isEmpty(getString(test, "label"))) {
       // p = new PSource.PSpecified(getBytes(test, "label"));
@@ -255,6 +261,9 @@ public class RsaOaepTest {
 
   public void testOaep(String filename, boolean allowSkippingKeys, boolean isStrongBox)
       throws Exception {
+    if (isStrongBox) {
+      KeyStoreUtil.assumeStrongBox();
+    }
     JsonObject test = JsonUtil.getTestVectors(this.getClass(), filename);
 
     // Compares the expected and actual JSON schema of the test vector file.
@@ -360,7 +369,7 @@ public class RsaOaepTest {
 
   @Test
   public void testRsaOaep2048Sha1Mgf1Sha1_StrongBox() throws Exception {
-    testOaep("rsa_oaep_2048_sha1_mgf1sha1_test.json", true);
+    testOaep("rsa_oaep_2048_sha1_mgf1sha1_test.json", true, true);
   }
 
   @Test
@@ -379,7 +388,6 @@ public class RsaOaepTest {
   }
   @Test
   public void testRsaOaep2048Sha256Mgf1Sha1_StrongBox() throws Exception {
-    KeyStoreUtil.assumeStrongBox();
     testOaep("rsa_oaep_2048_sha256_mgf1sha1_test.json", false, true);
   }
 
@@ -389,7 +397,6 @@ public class RsaOaepTest {
   }
   @Test
   public void testRsaOaep2048Sha256Mgf1Sha256_StrongBox() throws Exception {
-    KeyStoreUtil.assumeStrongBox();
     testOaep("rsa_oaep_2048_sha256_mgf1sha256_test.json", false, true);
   }
 
@@ -459,7 +466,6 @@ public class RsaOaepTest {
   }
   @Test
   public void testRsaOaepMisc_StrongBox() throws Exception {
-   KeyStoreUtil.assumeStrongBox();
    testOaep("rsa_oaep_misc_test.json", false, true);
   }
 }

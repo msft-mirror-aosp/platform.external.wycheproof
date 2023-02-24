@@ -17,6 +17,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -31,6 +32,7 @@ import java.security.interfaces.ECPublicKey;
 import java.security.spec.ECGenParameterSpec;
 import java.security.spec.ECParameterSpec;
 import java.util.Arrays;
+import java.util.HashSet;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.Ignore;
@@ -49,6 +51,7 @@ import android.keystore.cts.util.KeyStoreUtil;
 public class EcdsaTest {
   private static final String EXPECTED_PROVIDER_NAME = TestUtil.EXPECTED_CRYPTO_OP_PROVIDER_NAME;
   private static final String KEY_ALIAS_1 = "TestKey";
+  private static final String TAG = "EcdsaTest";
 
   @After
   public void tearDown() throws Exception {
@@ -88,6 +91,43 @@ public class EcdsaTest {
   }
 
   /**
+   * Returns true if the signature scheme is deterministic. Even though a non-deterministic
+   * signature scheme can in principle return the same signature twice this should never happen in
+   * practice.
+   */
+  private boolean isDeterministic(Signature signer, PrivateKey priv) throws Exception {
+    byte[][] signature = new byte[2][];
+    byte[] message = new byte[1];
+    for (int i = 0; i < 2; i++) {
+      signer.initSign(priv);
+      signer.update(message);
+      signature[i] = signer.sign();
+    }
+    return Arrays.equals(signature[0], signature[1]);
+  }
+
+  /**
+   * Returns number of count messages to sign. If the signature scheme is deterministic then the
+   * messages are all different. If the signature scheme is randomized then the messages are all
+   * the same. If the messages signed are all the same then it may be easier to detect a bias.
+   */
+  private byte[][] getMessagesToSign(int count, Signature signer, PrivateKey priv)
+          throws Exception {
+    byte[][] messages = new byte[count][];
+    if (isDeterministic(signer, priv)) {
+      for (int i = 0; i < count; i++) {
+        messages[i] = ByteBuffer.allocate(4).putInt(i).array();
+      }
+    } else {
+      byte[] msg = new byte[4];
+      for (int i = 0; i < count; i++) {
+        messages[i] = msg;
+      }
+    }
+    return messages;
+  }
+
+  /**
    * Extract the integer r from an ECDSA signature. This method implicitely assumes that the ECDSA
    * signature is DER encoded. and that the order of the curve is smaller than 2^1024.
    */
@@ -118,14 +158,13 @@ public class EcdsaTest {
   /**
    * Computes the bias of samples as
    *
-   * abs(sum(e^(2 pi i s m / modulus) for s in samples) / sqrt(samples.length).
+   * <p>abs(sum(e^(2 pi i s m / modulus) for s in samples) / sqrt(samples.length).
    *
-   * If the samples are taken from a uniform distribution in the range 0 .. modulus - 1
-   * and the number of samples is significantly larger than L^2
-   * then the probability that the result is larger than L is approximately e^(-L^2).
-   * The approximation can be derived from the assumption that samples taken from
-   * a uniform distribution give a result that approximates a standard complex normal 
-   * distribution Z. I.e. Z has a density f_Z(z) = exp(-abs(z)^2) / pi.
+   * <p>If the samples are taken from a uniform distribution in the range 0 .. modulus - 1 and the
+   * number of samples is significantly larger than L^2 then the probability that the result is
+   * larger than L is approximately e^(-L^2). The approximation can be derived from the assumption
+   * that samples taken from a uniform distribution give a result that approximates a standard
+   * complex normal distribution Z. I.e. Z has a density f_Z(z) = exp(-abs(z)^2) / pi.
    * https://en.wikipedia.org/wiki/Complex_normal_distribution
    */
   double bias(BigInteger[] samples, BigInteger modulus, BigInteger m) {
@@ -136,7 +175,7 @@ public class EcdsaTest {
       // multiplier = 2 * pi / 2^52
       double multiplier = 1.3951473992034527e-15;
       // computes the quotent 2 * pi * r / modulus
-      double quot = r.shiftLeft(52).divide(modulus).doubleValue() * multiplier;     
+      double quot = r.shiftLeft(52).divide(modulus).doubleValue() * multiplier;
       sumReal += Math.cos(quot);
       sumImag += Math.sin(quot);
     }
@@ -156,13 +195,15 @@ public class EcdsaTest {
     return testParameters(algorithm, curve, false);
   }
   boolean testParameters(String algorithm, String curve, boolean isStrongBox) throws Exception {
+    if (isStrongBox) {
+      KeyStoreUtil.assumeStrongBox();
+    }
     String message = "123400";
 
     KeyPairGenerator keyGen = KeyPairGenerator.getInstance("EC");
-    ECGenParameterSpec ecSpec = new ECGenParameterSpec(curve);
     KeyPair keyPair;
     try {
-      keyGen.initialize(ecSpec);
+      keyGen.initialize(new ECGenParameterSpec(curve));
       keyPair = keyGen.generateKeyPair();
     } catch (InvalidAlgorithmParameterException ex) {
       // The curve is not supported.
@@ -207,22 +248,28 @@ public class EcdsaTest {
   }
   @Test
   public void testBasic_StrongBox() throws Exception {
-    KeyStoreUtil.assumeStrongBox();
     String algorithm = "SHA256WithECDSA";
     String curve = "secp256r1";
     assertTrue(testParameters(algorithm, curve, true));
   }
 
   /** Checks whether the one time key k in ECDSA is biased. */
-  public void testBias(String algorithm, String curve, ECParameterSpec ecParams) throws Exception {
-    testBias(algorithm, curve, ecParams, false);
+  public void testBias(String algorithm, String curve) throws Exception {
+    testBias(algorithm, curve, false);
   }
-  public void testBias(String algorithm, String curve, ECParameterSpec ecParams,
+  public void testBias(String algorithm, String curve,
                        boolean isStrongBox) throws Exception {
+    if (isStrongBox) {
+      KeyStoreUtil.assumeStrongBox();
+    }
+    Signature signer = Signature.getInstance(algorithm, EXPECTED_PROVIDER_NAME);
     KeyPairGenerator keyGen = KeyPairGenerator.getInstance("EC");
-    keyGen.initialize(ecParams);
+    keyGen.initialize(new ECGenParameterSpec(curve));
     KeyPair keyPair = keyGen.generateKeyPair();
-    ECPrivateKey priv = (ECPrivateKey) keyPair.getPrivate();
+
+    ECPrivateKey priv = (ECPrivateKey)keyPair.getPrivate();
+    PrivateKey keystorePrivateKey = getKeystorePrivateKey(keyPair.getPublic(),
+            keyPair.getPrivate(), isStrongBox);
     // If we throw a fair coin tests times then the probability that
     // either heads or tails appears less than mincount is less than 2^{-32}.
     // Therefore the test below is not expected to fail unless the generation
@@ -230,23 +277,17 @@ public class EcdsaTest {
     final int tests = 1024;
     final int mincount = 410;
 
-    String hashAlgorithm = getHashAlgorithm(algorithm);
-    String message = "Hello";
-    byte[] messageBytes = message.getBytes("UTF-8");
-    byte[] digest = MessageDigest.getInstance(hashAlgorithm).digest(messageBytes);
-
-    // TODO(bleichen): Truncate the digest if the digest size is larger than the
-    //   curve size.
-    BigInteger h = new BigInteger(1, digest);
-    BigInteger q = priv.getParams().getOrder();
-    BigInteger qHalf = q.shiftRight(1);
-
-    Signature signer = Signature.getInstance(algorithm, EXPECTED_PROVIDER_NAME);
-    signer.initSign(getKeystorePrivateKey(keyPair.getPublic(), keyPair.getPrivate(), isStrongBox));
     BigInteger[] kList = new BigInteger[tests];
+    byte[][] message = getMessagesToSign(tests, signer, keystorePrivateKey);
+    signer.initSign(keystorePrivateKey);
+    String hashAlgorithm = getHashAlgorithm(algorithm);
     for (int i = 0; i < tests; i++) {
-      signer.update(messageBytes);
+      signer.update(message[i]);
       byte[] signature = signer.sign();
+      byte[] digest = MessageDigest.getInstance(hashAlgorithm).digest(message[i]);
+      // TODO(bleichen): Truncate the digest if the digest size is larger than the
+      //   curve size.
+      BigInteger h = new BigInteger(1, digest);
       kList[i] = extractK(signature, h, priv);
     }
 
@@ -254,6 +295,8 @@ public class EcdsaTest {
     // of the value k are unbiased.
     int countMsb = 0; // count the number of k's with lsb set
     int countLsb = 0; // count the number of k's with msb set
+    BigInteger q = priv.getParams().getOrder();
+    BigInteger qHalf = q.shiftRight(1);
     for (BigInteger k : kList) {
       if (k.testBit(0)) {
         countLsb++;
@@ -286,7 +329,7 @@ public class EcdsaTest {
       fail("Bias for k detected. bias1 = " + bias1);
     }
     // Same as above but shifing by one bit.
-    double bias2 = bias(kList, q, BigInteger.valueOf(2)); 
+    double bias2 = bias(kList, q, BigInteger.valueOf(2));
     if (bias2 > threshold) {
       fail("Bias for k detected. bias2 = " + bias2);
     }
@@ -305,21 +348,116 @@ public class EcdsaTest {
   }
 
   @Test
-  public void testBiasAll() throws Exception {
-    testBias("SHA256WithECDSA", "secp256r1", EcUtil.getNistP256Params());
-    testBias("SHA224WithECDSA", "secp224r1", EcUtil.getNistP224Params());
-    testBias("SHA384WithECDSA", "secp384r1", EcUtil.getNistP384Params());
-    testBias("SHA512WithECDSA", "secp521r1", EcUtil.getNistP521Params());
+  public void testBiasSecp224r1() throws Exception {
+    testBias("SHA224WithECDSA", "secp224r1");
   }
+
   @Test
-  public void testBiasAll_StrongBox() throws Exception {
-    KeyStoreUtil.assumeStrongBox();
-    testBias("SHA256WithECDSA", "secp256r1", EcUtil.getNistP256Params(), true);
+  public void testBiasSecp256r1() throws Exception {
+    testBias("SHA256WithECDSA", "secp256r1");
+  }
+
+  @Test
+  public void testBiasSecp384r1() throws Exception {
+    testBias("SHA384WithECDSA", "secp384r1");
+  }
+
+  @Test
+  public void testBiasSecp521r1() throws Exception {
+    testBias("SHA512WithECDSA", "secp521r1");
+  }
+
+  @Test
+  public void testBiasSecp521r1_StrongBox() throws Exception {
+    testBias("SHA256WithECDSA", "secp256r1", true);
   }
 
   @Test
   @Ignore // Brainpool curve are not supported in AndroidKeyStore
-  public void testBiasBrainpoolCurve() throws Exception {
-    testBias("SHA256WithECDSA", "brainpoolP256r1", EcUtil.getBrainpoolP256r1Params());
+  public void testBiasBrainpoolP256r1() throws Exception {
+    testBias("SHA512WithECDSA", "brainpoolP256r1");
+  }
+
+  /**
+   * This test uses the deterministic ECDSA implementation from BouncyCastle (if BouncyCastle is
+   * being tested.)
+   */
+  @Test
+  @Ignore // Algorithm SHA256WithECDDSA is not supported in AndroidKeyStore.
+  public void testBiasSecp256r1ECDDSA() throws Exception {
+    testBias("SHA256WithECDDSA", "secp256r1");
+  }
+
+  /**
+   * Tests initSign with a null value for SecureRandom. The expected behaviour is that a default
+   * instance of SecureRandom is used and that this instance is properly seeded. I.e., the expected
+   * behaviour is that Signature.initSign(ECPrivateKey, null) behaves like
+   * Signature.initSign(ECPrivateKey). If the signature scheme normally is randomized then
+   * Signature.initSign(ECprivateKey, null) should still be a randomized signature scheme. If the
+   * implementation is deterministic then we simply want this to work.
+   *
+   * <p>In principle, the correct behaviour is not really defined. However, if a provider would
+   * throw a null pointer exception then this can lead to unnecessary breakages.
+   */
+  public void testNullRandom(String algorithm, String curve) throws Exception {
+    testNullRandom(algorithm, curve, false);
+  }
+  public void testNullRandom(String algorithm, String curve, boolean isStrongBox)
+          throws Exception {
+    if (isStrongBox) {
+      KeyStoreUtil.assumeStrongBox();
+    }
+    int samples = 8;
+    Signature signer = Signature.getInstance(algorithm);
+    KeyPairGenerator keyGen = KeyPairGenerator.getInstance("EC");
+    keyGen.initialize(new ECGenParameterSpec(curve));
+    KeyPair keyPair = keyGen.generateKeyPair();
+    PrivateKey priv = getKeystorePrivateKey(keyPair.getPublic(), keyPair.getPrivate(),
+            isStrongBox);
+    byte[][] message = getMessagesToSign(samples, signer, priv);
+    HashSet<BigInteger> rSet = new HashSet<>();
+    for (int i = 0; i < samples; i++) {
+      // This is the function call that is tested by this test.
+      signer.initSign(priv, null);
+      signer.update(message[i]);
+      byte[] signature = signer.sign();
+      BigInteger r = extractR(signature);
+      assertTrue("Same r computed twice", rSet.add(r));
+    }
+  }
+
+  @Test
+  public void testNullRandomSecp224r1() throws Exception {
+    testNullRandom("SHA224WithECDSA", "secp224r1");
+  }
+
+  @Test
+  public void testNullRandomSecp256r1() throws Exception {
+    testNullRandom("SHA256WithECDSA", "secp256r1");
+  }
+
+  @Test
+  public void testNullRandomSecp256r1_StrongBox() throws Exception {
+    testNullRandom("SHA256WithECDSA", "secp256r1", true);
+  }
+
+  @Test
+  public void testNullRandomSecp384r1() throws Exception {
+    testNullRandom("SHA384WithECDSA", "secp384r1");
+  }
+
+  @Test
+  public void testNullRandomSecp521r1() throws Exception {
+    testNullRandom("SHA512WithECDSA", "secp521r1");
+  }
+
+  /**
+   * This test uses the deterministic ECDSA implementation from BouncyCastle (if BouncyCastle is
+   * being tested.)
+   */
+  @Test
+  @Ignore // Algorithm SHA256WithECdDSA is not supported in AndroidKeyStore.
+  public void testNullRandomSecp256r1ECDDSA() throws Exception {
+    testNullRandom("SHA256WithECdDSA", "secp256r1");
   }
 }
