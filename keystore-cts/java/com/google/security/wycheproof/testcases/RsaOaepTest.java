@@ -176,10 +176,9 @@ public class RsaOaepTest {
     String digest = getString(object, "sha");
     String mgfDigest = getString(object, "mgfSha");
     int keysize = object.get("keysize").getAsInt();
-    if (isStrongBox
-            && (!KeyStoreUtil.isStrongBoxSupportDigest(digest)
-                || !KeyStoreUtil.isStrongBoxSupportDigest(mgfDigest)
-                || !KeyStoreUtil.isStrongBoxSupportKeySize(keysize))) {
+    if (!KeyStoreUtil.isSupportedDigest(digest, isStrongBox)
+          || !KeyStoreUtil.isSupportedMgfDigest(mgfDigest, isStrongBox)
+          || !KeyStoreUtil.isSupportedRsaKeySize(keysize, isStrongBox)) {
       throw new UnsupportedKeyParametersException();
     }
     return saveKeyPairToKeystoreAndReturnPrivateKey(pubKey, intermediateKey, digest, mgfDigest,
@@ -291,11 +290,10 @@ public class RsaOaepTest {
         key = getPrivateKey(group, isStrongBox);
       } catch (UnsupportedKeyParametersException e) {
         skippedKeys++;
-        if (isStrongBox) {
-          continue;
-        }
         if (!allowSkippingKeys) {
           throw e;
+        } else {
+          continue;
         }
       }
       String algorithm = getOaepAlgorithmName(group);
@@ -356,7 +354,7 @@ public class RsaOaepTest {
     assertEquals(0, errors);
     if (skippedKeys > 0) {
       Log.d(TAG, "RSAES-OAEP: file:" + filename + " skipped key:" + skippedKeys);
-      assertTrue(!allowSkippingKeys);
+      assertTrue(allowSkippingKeys);
     } else {
       assertEquals(numTests, cntTests);
     }
@@ -462,11 +460,11 @@ public class RsaOaepTest {
 
   @Test
   public void testRsaOaepMisc() throws Exception {
-    testOaep("rsa_oaep_misc_test.json", false);
+    testOaep("rsa_oaep_misc_test.json", true);
   }
   @Test
   public void testRsaOaepMisc_StrongBox() throws Exception {
-   testOaep("rsa_oaep_misc_test.json", false, true);
+    testOaep("rsa_oaep_misc_test.json", true, true);
   }
 }
 
