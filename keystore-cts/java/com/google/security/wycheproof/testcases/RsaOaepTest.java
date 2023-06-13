@@ -66,12 +66,9 @@ public class RsaOaepTest {
             KeyProperties.PURPOSE_DECRYPT)
             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1,
                     KeyProperties.ENCRYPTION_PADDING_RSA_OAEP)
+            .setDigests(digest)
+            .setMgf1Digests(mgfDigest)
             .setIsStrongBoxBacked(isStrongBox);
-    if (digest.equalsIgnoreCase(mgfDigest)) {
-      keyProtection.setDigests(digest);
-    } else {
-      keyProtection.setDigests(digest, mgfDigest);
-    }
     return (PrivateKey) KeyStoreUtil.saveKeysToKeystore(KEY_ALIAS_1, pubKey, privKey,
             keyProtection.build()).getKey(KEY_ALIAS_1, null);
   }
