@@ -91,7 +91,11 @@ public class KeyStoreUtil {
         }
     }
 
-    public static int getFeatureVersionKeystore() {
+    public static int getFeatureVersionKeystore(boolean isStrongBox) {
+        if (isStrongBox) {
+            return TestUtils.getFeatureVersionKeystoreStrongBox(
+            ApplicationProvider.getApplicationContext());
+        }
         return TestUtils.getFeatureVersionKeystore(ApplicationProvider.getApplicationContext());
     }
 
