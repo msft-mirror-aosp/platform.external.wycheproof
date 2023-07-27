@@ -196,10 +196,13 @@ public class RsaOaepTest {
     String sha = getString(group, "sha");
     String mgf = getString(group, "mgf");
     String mgfSha = getString(group, "mgfSha");
-    // mgfDigest other than SHA-1 are supported from KeyMint V1 and above.
+    // mgfDigest other than SHA-1 are supported from KeyMint V1 and above but some implementations
+    // of keymint V1 and V2 (notably the C++ reference implementation) does not include MGF_DIGEST
+    // tag in key characteriestics hence issue b/287532460 introduced. So non-default MGF_DIGEST is
+    // tested on Keymint V3 and above.
     if (!mgfSha.equalsIgnoreCase("SHA-1")) {
-      assumeTrue("This test is valid for KeyMint version 1 and above.",
-          KeyStoreUtil.getFeatureVersionKeystore(isStrongBox) >= KeyStoreUtil.KM_VERSION_KEYMINT_1);
+      assumeTrue("This test is valid for KeyMint version 3 and above.",
+          KeyStoreUtil.getFeatureVersionKeystore(isStrongBox) >= KeyStoreUtil.KM_VERSION_KEYMINT_3);
     }
     PSource p = PSource.PSpecified.DEFAULT;
     if (test.has("label") && !TextUtils.isEmpty(getString(test, "label"))) {
