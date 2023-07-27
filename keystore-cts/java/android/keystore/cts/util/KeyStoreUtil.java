@@ -13,6 +13,7 @@
  */
 package android.keystore.cts.util;
 
+import static org.junit.Assume.assumeTrue;
 import android.content.Context;
 import android.security.keystore.KeyProtection;
 import android.keystore.cts.util.TestUtils;
@@ -176,5 +177,10 @@ public class KeyStoreUtil {
                         certFactory.generateCertificate(
                                 new ByteArrayInputStream(x509holder.getEncoded()));
         return x509c;
+    }
+
+    public static void assumeKeyMintV1OrNewer(boolean isStrongBox) {
+        assumeTrue("Test can only run on KeyMint v1 and above",
+            KeyStoreUtil.getFeatureVersionKeystore(isStrongBox) >= KM_VERSION_KEYMINT_1);
     }
 }
