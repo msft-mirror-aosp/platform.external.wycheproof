@@ -362,6 +362,8 @@ public class RsaOaepTest {
 
   @Test
   public void testRsaOaep2048Sha1Mgf1Sha1() throws Exception {
+    // b/244609904#comment64
+    KeyStoreUtil.assumeKeyMintV1OrNewer(false);
    testOaep("rsa_oaep_2048_sha1_mgf1sha1_test.json", false);
   }
 
@@ -420,6 +422,8 @@ public class RsaOaepTest {
 
   @Test
   public void testRsaOaep3072Sha256Mgf1Sha1() throws Exception {
+    // b/244609904#comment64
+    KeyStoreUtil.assumeKeyMintV1OrNewer(false);
    testOaep("rsa_oaep_3072_sha256_mgf1sha1_test.json", false);
   }
 
@@ -440,6 +444,8 @@ public class RsaOaepTest {
 
   @Test
   public void testRsaOaep4096Sha256Mgf1Sha1() throws Exception {
+    // b/244609904#comment64
+    KeyStoreUtil.assumeKeyMintV1OrNewer(false);
    testOaep("rsa_oaep_4096_sha256_mgf1sha1_test.json", false);
   }
 
