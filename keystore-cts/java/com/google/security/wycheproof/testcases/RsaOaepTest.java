@@ -60,17 +60,20 @@ public class RsaOaepTest {
   private static PrivateKey saveKeyPairToKeystoreAndReturnPrivateKey(PublicKey pubKey,
         PrivateKey privKey, String digest, String mgfDigest, boolean isStrongBox)
           throws Exception {
+    KeyProtection.Builder keyProtection = new KeyProtection.Builder(KeyProperties.PURPOSE_SIGN |
+            KeyProperties.PURPOSE_VERIFY |
+            KeyProperties.PURPOSE_ENCRYPT |
+            KeyProperties.PURPOSE_DECRYPT)
+            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1,
+                    KeyProperties.ENCRYPTION_PADDING_RSA_OAEP)
+            .setIsStrongBoxBacked(isStrongBox);
+    if (digest.equalsIgnoreCase(mgfDigest)) {
+      keyProtection.setDigests(digest);
+    } else {
+      keyProtection.setDigests(digest, mgfDigest);
+    }
     return (PrivateKey) KeyStoreUtil.saveKeysToKeystore(KEY_ALIAS_1, pubKey, privKey,
-                        new KeyProtection.Builder(KeyProperties.PURPOSE_SIGN |
-                                KeyProperties.PURPOSE_VERIFY |
-                                KeyProperties.PURPOSE_ENCRYPT |
-                                KeyProperties.PURPOSE_DECRYPT)
-                          .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1,
-                                KeyProperties.ENCRYPTION_PADDING_RSA_OAEP)
-                          .setDigests(digest, mgfDigest)
-                          .setIsStrongBoxBacked(isStrongBox)
-                          .build())
-                      .getKey(KEY_ALIAS_1, null);
+            keyProtection.build()).getKey(KEY_ALIAS_1, null);
   }
 
   /**
