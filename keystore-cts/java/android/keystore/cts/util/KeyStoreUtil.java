@@ -53,6 +53,8 @@ public class KeyStoreUtil {
     public static final int KM_VERSION_KEYMASTER_4 = 40;
     public static final int KM_VERSION_KEYMASTER_4_1 = 41;
     public static final int KM_VERSION_KEYMINT_1 = 100;
+    public static final int KM_VERSION_KEYMINT_2 = 200;
+    public static final int KM_VERSION_KEYMINT_3 = 300;
 
     private static final List kmSupportedDigests = List.of("md5","sha-1","sha-224","sha-384",
                                                         "sha-256","sha-512");
@@ -91,7 +93,11 @@ public class KeyStoreUtil {
         }
     }
 
-    public static int getFeatureVersionKeystore() {
+    public static int getFeatureVersionKeystore(boolean isStrongBox) {
+        if (isStrongBox) {
+            return TestUtils.getFeatureVersionKeystoreStrongBox(
+            ApplicationProvider.getApplicationContext());
+        }
         return TestUtils.getFeatureVersionKeystore(ApplicationProvider.getApplicationContext());
     }
 
