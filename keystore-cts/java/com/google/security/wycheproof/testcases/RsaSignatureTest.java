@@ -1265,6 +1265,8 @@ public class RsaSignatureTest {
    */
   @Test
   public void testFaultySigner() throws Exception {
+    // b/244609904#comment64
+    KeyStoreUtil.assumeKeyMintV1OrNewer(false);
     testFaultySigner(false);
   }
   @Test
