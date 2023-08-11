@@ -331,6 +331,9 @@ public class MacTest {
   }
 
   @Test
+  // Long-running MAC tests expose inefficiencies on some devices. Ignore the test until
+  // performance requirements can be defined. See http://b/288588810#comment27
+  @Ignore
   public void testLongMacSha1() throws Exception {
     // b/244609904#comment64
     KeyStoreUtil.assumeKeyMintV1OrNewer(false);
@@ -350,6 +353,9 @@ public class MacTest {
   }
 
   @Test
+  // Long-running MAC tests expose inefficiencies on some devices. Ignore the test until
+  // performance requirements can be defined. See http://b/288588810#comment27
+  @Ignore
   public void testLongMacSha256() throws Exception {
     // b/244609904#comment64
     KeyStoreUtil.assumeKeyMintV1OrNewer(false);
@@ -379,6 +385,9 @@ public class MacTest {
   }
 
   @Test
+  // Long-running MAC tests expose inefficiencies on some devices. Ignore the test until
+  // performance requirements can be defined. See http://b/288588810#comment27
+  @Ignore
   public void testLongMacSha384() throws Exception {
     // b/244609904#comment64
     KeyStoreUtil.assumeKeyMintV1OrNewer(false);
@@ -402,6 +411,9 @@ public class MacTest {
   }
 
   @Test
+  // Long-running MAC tests expose inefficiencies on some devices. Ignore the test until
+  // performance requirements can be defined. See http://b/288588810#comment27
+  @Ignore
   public void testLongMacSha512() throws Exception {
     // b/244609904#comment64
     KeyStoreUtil.assumeKeyMintV1OrNewer(false);
