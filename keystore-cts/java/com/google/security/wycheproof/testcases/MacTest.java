@@ -209,16 +209,25 @@ public class MacTest {
   }
 
   @Test
+  // Long-running MAC tests expose inefficiencies on some devices. Ignore the test until
+  // performance requirements can be defined. See http://b/296367623
+  @Ignore
   public void testHmacSha1() throws Exception {
     testMac("HMACSHA1", 20);
   }
 
   @Test
+  // Long-running MAC tests expose inefficiencies on some devices. Ignore the test until
+  // performance requirements can be defined. See http://b/296367623
+  @Ignore
   public void testHmacSha224() throws Exception {
     testMac("HMACSHA224", 28);
   }
 
   @Test
+  // Long-running MAC tests expose inefficiencies on some devices. Ignore the test until
+  // performance requirements can be defined. See http://b/296367623
+  @Ignore
   public void testHmacSha256() throws Exception {
     testMac("HMACSHA256", 32);
   }
@@ -231,11 +240,17 @@ public class MacTest {
   }
 
   @Test
+  // Long-running MAC tests expose inefficiencies on some devices. Ignore the test until
+  // performance requirements can be defined. See http://b/296367623
+  @Ignore
   public void testHmacSha384() throws Exception {
     testMac("HMACSHA384", 48);
   }
 
   @Test
+  // Long-running MAC tests expose inefficiencies on some devices. Ignore the test until
+  // performance requirements can be defined. See http://b/296367623
+  @Ignore
   public void testHmacSha512() throws Exception {
     testMac("HMACSHA512", 64);
   }
@@ -331,6 +346,9 @@ public class MacTest {
   }
 
   @Test
+  // Long-running MAC tests expose inefficiencies on some devices. Ignore the test until
+  // performance requirements can be defined. See http://b/288588810#comment27
+  @Ignore
   public void testLongMacSha1() throws Exception {
     testLongMac(
         "HMACSHA1",
@@ -347,6 +365,9 @@ public class MacTest {
   }
 
   @Test
+  // Long-running MAC tests expose inefficiencies on some devices. Ignore the test until
+  // performance requirements can be defined. See http://b/288588810#comment27
+  @Ignore
   public void testLongMacSha256() throws Exception {
     testLongMacSha256(false);
   }
@@ -374,6 +395,9 @@ public class MacTest {
   }
 
   @Test
+  // Long-running MAC tests expose inefficiencies on some devices. Ignore the test until
+  // performance requirements can be defined. See http://b/288588810#comment27
+  @Ignore
   public void testLongMacSha384() throws Exception {
     testLongMac(
         "HMACSHA384",
@@ -394,6 +418,9 @@ public class MacTest {
   }
 
   @Test
+  // Long-running MAC tests expose inefficiencies on some devices. Ignore the test until
+  // performance requirements can be defined. See http://b/288588810#comment27
+  @Ignore
   public void testLongMacSha512() throws Exception {
     testLongMac(
         "HMACSHA512",
