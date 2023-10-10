@@ -350,6 +350,9 @@ public class MacTest {
   // performance requirements can be defined. See http://b/288588810#comment27
   @Ignore
   public void testLongMacSha1() throws Exception {
+    // b/244609904#comment64
+    KeyStoreUtil.assumeKeyMintV1OrNewer(false);
+
     testLongMac(
         "HMACSHA1",
         "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
@@ -369,6 +372,8 @@ public class MacTest {
   // performance requirements can be defined. See http://b/288588810#comment27
   @Ignore
   public void testLongMacSha256() throws Exception {
+    // b/244609904#comment64
+    KeyStoreUtil.assumeKeyMintV1OrNewer(false);
     testLongMacSha256(false);
   }
   @Test
@@ -399,6 +404,9 @@ public class MacTest {
   // performance requirements can be defined. See http://b/288588810#comment27
   @Ignore
   public void testLongMacSha384() throws Exception {
+    // b/244609904#comment64
+    KeyStoreUtil.assumeKeyMintV1OrNewer(false);
+
     testLongMac(
         "HMACSHA384",
         "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
@@ -422,6 +430,9 @@ public class MacTest {
   // performance requirements can be defined. See http://b/288588810#comment27
   @Ignore
   public void testLongMacSha512() throws Exception {
+    // b/244609904#comment64
+    KeyStoreUtil.assumeKeyMintV1OrNewer(false);
+
     testLongMac(
         "HMACSHA512",
         "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
