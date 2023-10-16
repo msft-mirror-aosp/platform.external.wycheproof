@@ -66,12 +66,9 @@ public class RsaOaepTest {
             KeyProperties.PURPOSE_DECRYPT)
             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1,
                     KeyProperties.ENCRYPTION_PADDING_RSA_OAEP)
+            .setDigests(digest)
+            .setMgf1Digests(mgfDigest)
             .setIsStrongBoxBacked(isStrongBox);
-    if (digest.equalsIgnoreCase(mgfDigest)) {
-      keyProtection.setDigests(digest);
-    } else {
-      keyProtection.setDigests(digest, mgfDigest);
-    }
     return (PrivateKey) KeyStoreUtil.saveKeysToKeystore(KEY_ALIAS_1, pubKey, privKey,
             keyProtection.build()).getKey(KEY_ALIAS_1, null);
   }
@@ -368,6 +365,8 @@ public class RsaOaepTest {
 
   @Test
   public void testRsaOaep2048Sha1Mgf1Sha1() throws Exception {
+    // b/244609904#comment64
+    KeyStoreUtil.assumeKeyMintV1OrNewer(false);
    testOaep("rsa_oaep_2048_sha1_mgf1sha1_test.json", false);
   }
 
@@ -426,6 +425,8 @@ public class RsaOaepTest {
 
   @Test
   public void testRsaOaep3072Sha256Mgf1Sha1() throws Exception {
+    // b/244609904#comment64
+    KeyStoreUtil.assumeKeyMintV1OrNewer(false);
    testOaep("rsa_oaep_3072_sha256_mgf1sha1_test.json", false);
   }
 
@@ -446,6 +447,8 @@ public class RsaOaepTest {
 
   @Test
   public void testRsaOaep4096Sha256Mgf1Sha1() throws Exception {
+    // b/244609904#comment64
+    KeyStoreUtil.assumeKeyMintV1OrNewer(false);
    testOaep("rsa_oaep_4096_sha256_mgf1sha1_test.json", false);
   }
 
