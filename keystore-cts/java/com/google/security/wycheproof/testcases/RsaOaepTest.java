@@ -38,6 +38,7 @@ import javax.crypto.spec.PSource;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.Ignore;
+import android.security.Flags;
 import android.security.keystore.KeyProtection;
 import android.security.keystore.KeyProperties;
 import android.keystore.cts.util.KeyStoreUtil;
@@ -66,9 +67,17 @@ public class RsaOaepTest {
             KeyProperties.PURPOSE_DECRYPT)
             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1,
                     KeyProperties.ENCRYPTION_PADDING_RSA_OAEP)
-            .setDigests(digest)
-            .setMgf1Digests(mgfDigest)
             .setIsStrongBoxBacked(isStrongBox);
+    if (Flags.mgf1DigestSetter()) {
+      keyProtection.setDigests(digest);
+      keyProtection.setMgf1Digests(mgfDigest);
+    } else {
+      if (digest.equalsIgnoreCase(mgfDigest)) {
+        keyProtection.setDigests(digest);
+      } else {
+        keyProtection.setDigests(digest, mgfDigest);
+      }
+    }
     return (PrivateKey) KeyStoreUtil.saveKeysToKeystore(KEY_ALIAS_1, pubKey, privKey,
             keyProtection.build()).getKey(KEY_ALIAS_1, null);
   }
