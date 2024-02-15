@@ -68,7 +68,7 @@ public class RsaOaepTest {
             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1,
                     KeyProperties.ENCRYPTION_PADDING_RSA_OAEP)
             .setIsStrongBoxBacked(isStrongBox);
-    if (Flags.mgf1DigestSetter()) {
+    if (Flags.mgf1DigestSetterV2()) {
       keyProtection.setDigests(digest);
       keyProtection.setMgf1Digests(mgfDigest);
     } else {
