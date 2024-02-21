@@ -69,5 +69,4 @@ java_library_static {
         "cts-core-test-runner-axt",
         "cts-keystore-test-util",
     ],
-    platform_apis: true,
 }
