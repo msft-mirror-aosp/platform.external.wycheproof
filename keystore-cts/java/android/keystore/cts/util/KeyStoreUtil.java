@@ -94,14 +94,6 @@ public class KeyStoreUtil {
         }
     }
 
-    public static int getFeatureVersionKeystore(boolean isStrongBox) {
-        if (isStrongBox) {
-            return TestUtils.getFeatureVersionKeystoreStrongBox(
-            ApplicationProvider.getApplicationContext());
-        }
-        return TestUtils.getFeatureVersionKeystore(ApplicationProvider.getApplicationContext());
-    }
-
     public static boolean hasStrongBox() {
         Context context = ApplicationProvider.getApplicationContext();
         return TestUtils.hasStrongBox(context);
@@ -183,6 +175,6 @@ public class KeyStoreUtil {
 
     public static void assumeKeyMintV1OrNewer(boolean isStrongBox) {
         assumeTrue("Test can only run on KeyMint v1 and above",
-            KeyStoreUtil.getFeatureVersionKeystore(isStrongBox) >= KM_VERSION_KEYMINT_1);
+            TestUtils.hasKeystoreVersion(isStrongBox, KM_VERSION_KEYMINT_1));
     }
 }
