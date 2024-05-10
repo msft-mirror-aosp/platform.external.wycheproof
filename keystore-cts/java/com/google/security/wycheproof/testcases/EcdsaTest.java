@@ -358,6 +358,11 @@ public class EcdsaTest {
   }
 
   @Test
+  public void testBiasSecp256r1_StrongBox() throws Exception {
+    testBias("SHA256WithECDSA", "secp256r1", true);
+  }
+
+  @Test
   public void testBiasSecp384r1() throws Exception {
     testBias("SHA384WithECDSA", "secp384r1");
   }
@@ -365,11 +370,6 @@ public class EcdsaTest {
   @Test
   public void testBiasSecp521r1() throws Exception {
     testBias("SHA512WithECDSA", "secp521r1");
-  }
-
-  @Test
-  public void testBiasSecp521r1_StrongBox() throws Exception {
-    testBias("SHA256WithECDSA", "secp256r1", true);
   }
 
   @Test

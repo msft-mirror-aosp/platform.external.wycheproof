@@ -38,6 +38,7 @@ import javax.crypto.spec.PSource;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.Ignore;
+import android.security.Flags;
 import android.security.keystore.KeyProtection;
 import android.security.keystore.KeyProperties;
 import android.keystore.cts.util.KeyStoreUtil;
@@ -60,17 +61,25 @@ public class RsaOaepTest {
   private static PrivateKey saveKeyPairToKeystoreAndReturnPrivateKey(PublicKey pubKey,
         PrivateKey privKey, String digest, String mgfDigest, boolean isStrongBox)
           throws Exception {
+    KeyProtection.Builder keyProtection = new KeyProtection.Builder(KeyProperties.PURPOSE_SIGN |
+            KeyProperties.PURPOSE_VERIFY |
+            KeyProperties.PURPOSE_ENCRYPT |
+            KeyProperties.PURPOSE_DECRYPT)
+            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1,
+                    KeyProperties.ENCRYPTION_PADDING_RSA_OAEP)
+            .setIsStrongBoxBacked(isStrongBox);
+    if (Flags.mgf1DigestSetterV2()) {
+      keyProtection.setDigests(digest);
+      keyProtection.setMgf1Digests(mgfDigest);
+    } else {
+      if (digest.equalsIgnoreCase(mgfDigest)) {
+        keyProtection.setDigests(digest);
+      } else {
+        keyProtection.setDigests(digest, mgfDigest);
+      }
+    }
     return (PrivateKey) KeyStoreUtil.saveKeysToKeystore(KEY_ALIAS_1, pubKey, privKey,
-                        new KeyProtection.Builder(KeyProperties.PURPOSE_SIGN |
-                                KeyProperties.PURPOSE_VERIFY |
-                                KeyProperties.PURPOSE_ENCRYPT |
-                                KeyProperties.PURPOSE_DECRYPT)
-                          .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1,
-                                KeyProperties.ENCRYPTION_PADDING_RSA_OAEP)
-                          .setDigests(digest, mgfDigest)
-                          .setIsStrongBoxBacked(isStrongBox)
-                          .build())
-                      .getKey(KEY_ALIAS_1, null);
+            keyProtection.build()).getKey(KEY_ALIAS_1, null);
   }
 
   /**
@@ -176,10 +185,9 @@ public class RsaOaepTest {
     String digest = getString(object, "sha");
     String mgfDigest = getString(object, "mgfSha");
     int keysize = object.get("keysize").getAsInt();
-    if (isStrongBox
-            && (!KeyStoreUtil.isStrongBoxSupportDigest(digest)
-                || !KeyStoreUtil.isStrongBoxSupportDigest(mgfDigest)
-                || !KeyStoreUtil.isStrongBoxSupportKeySize(keysize))) {
+    if (!KeyStoreUtil.isSupportedDigest(digest, isStrongBox)
+          || !KeyStoreUtil.isSupportedMgfDigest(mgfDigest, isStrongBox)
+          || !KeyStoreUtil.isSupportedRsaKeySize(keysize, isStrongBox)) {
       throw new UnsupportedKeyParametersException();
     }
     return saveKeyPairToKeystoreAndReturnPrivateKey(pubKey, intermediateKey, digest, mgfDigest,
@@ -193,14 +201,17 @@ public class RsaOaepTest {
   }
 
   protected static OAEPParameterSpec getOaepParameters(JsonObject group,
-    JsonObject test) throws Exception {
+    JsonObject test, boolean isStrongBox) throws Exception {
     String sha = getString(group, "sha");
     String mgf = getString(group, "mgf");
     String mgfSha = getString(group, "mgfSha");
-    // mgfDigest other than SHA-1 are supported from KeyMint V1 and above.
+    // mgfDigest other than SHA-1 are supported from KeyMint V1 and above but some implementations
+    // of keymint V1 and V2 (notably the C++ reference implementation) does not include MGF_DIGEST
+    // tag in key characteriestics hence issue b/287532460 introduced. So non-default MGF_DIGEST is
+    // tested on Keymint V3 and above.
     if (!mgfSha.equalsIgnoreCase("SHA-1")) {
-      assumeTrue("This test is valid for KeyMint version 1 and above.",
-              KeyStoreUtil.getFeatureVersionKeystore() >= KeyStoreUtil.KM_VERSION_KEYMINT_1);
+      assumeTrue("This test is valid for KeyMint version 3 and above.",
+          KeyStoreUtil.getFeatureVersionKeystore(isStrongBox) >= KeyStoreUtil.KM_VERSION_KEYMINT_3);
     }
     PSource p = PSource.PSpecified.DEFAULT;
     if (test.has("label") && !TextUtils.isEmpty(getString(test, "label"))) {
@@ -291,11 +302,10 @@ public class RsaOaepTest {
         key = getPrivateKey(group, isStrongBox);
       } catch (UnsupportedKeyParametersException e) {
         skippedKeys++;
-        if (isStrongBox) {
-          continue;
-        }
         if (!allowSkippingKeys) {
           throw e;
+        } else {
+          continue;
         }
       }
       String algorithm = getOaepAlgorithmName(group);
@@ -307,7 +317,7 @@ public class RsaOaepTest {
         String messageHex = TestUtil.bytesToHex(getBytes(testcase, "msg"));
         OAEPParameterSpec params;
         try {
-          params = getOaepParameters(group, testcase);
+          params = getOaepParameters(group, testcase, isStrongBox);
         } catch (UnsupportedKeyParametersException e) {
           // TODO This try catch block should be removed once issue b/229183581 is fixed.
           continue;
@@ -356,7 +366,7 @@ public class RsaOaepTest {
     assertEquals(0, errors);
     if (skippedKeys > 0) {
       Log.d(TAG, "RSAES-OAEP: file:" + filename + " skipped key:" + skippedKeys);
-      assertTrue(!allowSkippingKeys);
+      assertTrue(allowSkippingKeys);
     } else {
       assertEquals(numTests, cntTests);
     }
@@ -364,6 +374,8 @@ public class RsaOaepTest {
 
   @Test
   public void testRsaOaep2048Sha1Mgf1Sha1() throws Exception {
+    // b/244609904#comment64
+    KeyStoreUtil.assumeKeyMintV1OrNewer(false);
    testOaep("rsa_oaep_2048_sha1_mgf1sha1_test.json", false);
   }
 
@@ -422,6 +434,8 @@ public class RsaOaepTest {
 
   @Test
   public void testRsaOaep3072Sha256Mgf1Sha1() throws Exception {
+    // b/244609904#comment64
+    KeyStoreUtil.assumeKeyMintV1OrNewer(false);
    testOaep("rsa_oaep_3072_sha256_mgf1sha1_test.json", false);
   }
 
@@ -442,6 +456,8 @@ public class RsaOaepTest {
 
   @Test
   public void testRsaOaep4096Sha256Mgf1Sha1() throws Exception {
+    // b/244609904#comment64
+    KeyStoreUtil.assumeKeyMintV1OrNewer(false);
    testOaep("rsa_oaep_4096_sha256_mgf1sha1_test.json", false);
   }
 
@@ -462,11 +478,11 @@ public class RsaOaepTest {
 
   @Test
   public void testRsaOaepMisc() throws Exception {
-    testOaep("rsa_oaep_misc_test.json", false);
+    testOaep("rsa_oaep_misc_test.json", true);
   }
   @Test
   public void testRsaOaepMisc_StrongBox() throws Exception {
-   testOaep("rsa_oaep_misc_test.json", false, true);
+    testOaep("rsa_oaep_misc_test.json", true, true);
   }
 }
 

@@ -13,6 +13,7 @@
  */
 package android.keystore.cts.util;
 
+import static org.junit.Assume.assumeTrue;
 import android.content.Context;
 import android.security.keystore.KeyProtection;
 import android.keystore.cts.util.TestUtils;
@@ -38,6 +39,7 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Date;
 import java.util.Enumeration;
+import java.util.List;
 import javax.crypto.spec.SecretKeySpec;
 import javax.security.auth.x500.X500Principal;
 
@@ -52,6 +54,11 @@ public class KeyStoreUtil {
     public static final int KM_VERSION_KEYMASTER_4 = 40;
     public static final int KM_VERSION_KEYMASTER_4_1 = 41;
     public static final int KM_VERSION_KEYMINT_1 = 100;
+    public static final int KM_VERSION_KEYMINT_2 = 200;
+    public static final int KM_VERSION_KEYMINT_3 = 300;
+
+    private static final List kmSupportedDigests = List.of("md5","sha-1","sha-224","sha-384",
+                                                        "sha-256","sha-512");
 
     public static KeyStore saveKeysToKeystore(String alias, PublicKey pubKey, PrivateKey privKey,
             KeyProtection keyProtection) throws Exception {
@@ -87,7 +94,11 @@ public class KeyStoreUtil {
         }
     }
 
-    public static int getFeatureVersionKeystore() {
+    public static int getFeatureVersionKeystore(boolean isStrongBox) {
+        if (isStrongBox) {
+            return TestUtils.getFeatureVersionKeystoreStrongBox(
+            ApplicationProvider.getApplicationContext());
+        }
         return TestUtils.getFeatureVersionKeystore(ApplicationProvider.getApplicationContext());
     }
 
@@ -100,13 +111,26 @@ public class KeyStoreUtil {
         TestUtils.assumeStrongBox();
     }
 
-    public static boolean isStrongBoxSupportDigest(String digest) {
-        return digest.equalsIgnoreCase("sha-1")
-                || digest.equalsIgnoreCase("sha-256");
+    public static boolean isSupportedDigest(String digest, boolean isStrongBox) {
+        if (isStrongBox) {
+            return digest.equalsIgnoreCase("sha-256");
+        }
+        return kmSupportedDigests.contains(digest.toLowerCase());
     }
 
-    public static boolean isStrongBoxSupportKeySize(int keySize) {
-        return keySize == 2048;
+    public static boolean isSupportedMgfDigest(String digest, boolean isStrongBox) {
+        if (isStrongBox) {
+            return digest.equalsIgnoreCase("sha-1")
+                    || digest.equalsIgnoreCase("sha-256");
+        }
+        return kmSupportedDigests.contains(digest.toLowerCase());
+    }
+
+    public static boolean isSupportedRsaKeySize(int keySize, boolean isStrongBox) {
+        if (isStrongBox) {
+            return keySize == 2048;
+        }
+        return keySize == 2048 || keySize == 3072 || keySize == 4096;
     }
 
     public static X509Certificate createCertificate(
@@ -155,5 +179,10 @@ public class KeyStoreUtil {
                         certFactory.generateCertificate(
                                 new ByteArrayInputStream(x509holder.getEncoded()));
         return x509c;
+    }
+
+    public static void assumeKeyMintV1OrNewer(boolean isStrongBox) {
+        assumeTrue("Test can only run on KeyMint v1 and above",
+            KeyStoreUtil.getFeatureVersionKeystore(isStrongBox) >= KM_VERSION_KEYMINT_1);
     }
 }
