@@ -65,18 +65,8 @@ java_library_static {
         "bouncycastle-bcpkix-unbundled",
         "bouncycastle-unbundled",
         "junit",
-        "wycheproof-gson",
+        "gson",
         "cts-core-test-runner-axt",
         "cts-keystore-test-util",
     ],
-    platform_apis: true,
-}
-
-java_import {
-    name: "wycheproof-gson",
-    visibility: [
-        "//cts/tests/tests/keystore",
-        "//external/android-key-attestation",
-    ],
-    jars: ["keystore-cts/libs/gson-2.9.0.jar"],
 }
