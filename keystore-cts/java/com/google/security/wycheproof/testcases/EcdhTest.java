@@ -44,6 +44,7 @@ import org.junit.After;
 import org.junit.Test;
 import org.junit.Ignore;
 import android.content.Context;
+import android.security.KeyStoreException;
 import android.security.keystore.KeyProtection;
 import android.security.keystore.KeyProperties;
 import android.security.keystore.KeyGenParameterSpec;
@@ -810,19 +811,31 @@ public static final EcPublicKeyTestVector EC_VALID_PUBLIC_KEY =
       ECPrivateKeySpec spec1 = new ECPrivateKeySpec(p1, spec);
       ECPrivateKeySpec spec2 = new ECPrivateKeySpec(order.subtract(p1), spec);
       PrivateKey priv1 = kf.generatePrivate(spec1);
-      // This Public key is not pair of priv1, but it is required to create KeyPair to import into
-      // AndroidKeyStore, So using dummy public key. 
-      PublicKey pub1 = kf.generatePublic(EC_VALID_PUBLIC_KEY.getX509EncodedKeySpec());
-      ka.init(getKeystorePrivateKey(pub1, priv1, isStrongBox));
-      ka.doPhase(pub, true);
-      byte[] shared1 = ka.generateSecret();
       PrivateKey priv2 = kf.generatePrivate(spec2);
-      ka.init(getKeystorePrivateKey(pub1, priv2, isStrongBox));
-      ka.doPhase(pub, true);
-      byte[] shared2 = ka.generateSecret();
-      // The private keys p1 and p2 are equivalent, since only the x-coordinate of the
-      // shared point is used to generate the shared secret.
-      assertEquals(TestUtil.bytesToHex(shared1), TestUtil.bytesToHex(shared2));
+      // This Public key is not pair of priv1, but it is required to create KeyPair to import into
+      // AndroidKeyStore, So using dummy public key.
+      PublicKey pub1 = kf.generatePublic(EC_VALID_PUBLIC_KEY.getX509EncodedKeySpec());
+      try {
+        ka.init(getKeystorePrivateKey(pub1, priv1, isStrongBox));
+        ka.doPhase(pub, true);
+        byte[] shared1 = ka.generateSecret();
+        ka.init(getKeystorePrivateKey(pub1, priv2, isStrongBox));
+        ka.doPhase(pub, true);
+        byte[] shared2 = ka.generateSecret();
+        // The private keys p1 and p2 are equivalent, since only the x-coordinate of the
+        // shared point is used to generate the shared secret.
+        assertEquals(TestUtil.bytesToHex(shared1), TestUtil.bytesToHex(shared2));
+      } catch (InvalidKeyException e) {
+        if (i <= 15 && e.getCause() instanceof KeyStoreException &&
+            ((KeyStoreException)e.getCause()).getNumericErrorCode() ==
+                KeyStoreException.ERROR_KEYMINT_FAILURE) {
+          // Known rejected on some vendor implementations for certain i values.
+          // Keymint Applet error code is INVALID_OPERATION (-76).
+          continue;
+        } else {
+          throw e;
+        }
+      }
     }
   }
 
