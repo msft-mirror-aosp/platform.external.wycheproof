@@ -42,6 +42,7 @@ import android.security.Flags;
 import android.security.keystore.KeyProtection;
 import android.security.keystore.KeyProperties;
 import android.keystore.cts.util.KeyStoreUtil;
+import android.keystore.cts.util.TestUtils;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -211,7 +212,7 @@ public class RsaOaepTest {
     // tested on Keymint V3 and above.
     if (!mgfSha.equalsIgnoreCase("SHA-1")) {
       assumeTrue("This test is valid for KeyMint version 3 and above.",
-          KeyStoreUtil.getFeatureVersionKeystore(isStrongBox) >= KeyStoreUtil.KM_VERSION_KEYMINT_3);
+              TestUtils.hasKeystoreVersion(isStrongBox, KeyStoreUtil.KM_VERSION_KEYMINT_3));
     }
     PSource p = PSource.PSpecified.DEFAULT;
     if (test.has("label") && !TextUtils.isEmpty(getString(test, "label"))) {
