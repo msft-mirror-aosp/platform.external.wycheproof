@@ -38,9 +38,11 @@ import javax.crypto.spec.PSource;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.Ignore;
+import android.security.Flags;
 import android.security.keystore.KeyProtection;
 import android.security.keystore.KeyProperties;
 import android.keystore.cts.util.KeyStoreUtil;
+import android.keystore.cts.util.TestUtils;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -67,10 +69,15 @@ public class RsaOaepTest {
             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1,
                     KeyProperties.ENCRYPTION_PADDING_RSA_OAEP)
             .setIsStrongBoxBacked(isStrongBox);
-    if (digest.equalsIgnoreCase(mgfDigest)) {
+    if (Flags.mgf1DigestSetterV2()) {
       keyProtection.setDigests(digest);
+      keyProtection.setMgf1Digests(mgfDigest);
     } else {
-      keyProtection.setDigests(digest, mgfDigest);
+      if (digest.equalsIgnoreCase(mgfDigest)) {
+        keyProtection.setDigests(digest);
+      } else {
+        keyProtection.setDigests(digest, mgfDigest);
+      }
     }
     return (PrivateKey) KeyStoreUtil.saveKeysToKeystore(KEY_ALIAS_1, pubKey, privKey,
             keyProtection.build()).getKey(KEY_ALIAS_1, null);
@@ -205,7 +212,7 @@ public class RsaOaepTest {
     // tested on Keymint V3 and above.
     if (!mgfSha.equalsIgnoreCase("SHA-1")) {
       assumeTrue("This test is valid for KeyMint version 3 and above.",
-          KeyStoreUtil.getFeatureVersionKeystore(isStrongBox) >= KeyStoreUtil.KM_VERSION_KEYMINT_3);
+              TestUtils.hasKeystoreVersion(isStrongBox, KeyStoreUtil.KM_VERSION_KEYMINT_3));
     }
     PSource p = PSource.PSpecified.DEFAULT;
     if (test.has("label") && !TextUtils.isEmpty(getString(test, "label"))) {
