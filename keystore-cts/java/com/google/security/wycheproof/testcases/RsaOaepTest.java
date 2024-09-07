@@ -13,6 +13,7 @@
  */
 package com.google.security.wycheproof;
 
+import static android.os.Build.VERSION_CODES.TIRAMISU;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
@@ -401,6 +402,8 @@ public class RsaOaepTest {
   }
   @Test
   public void testRsaOaep2048Sha256Mgf1Sha1_StrongBox() throws Exception {
+    assumeTrue("If the VSR level is > T the test will run, otherwise it will be ignored.",
+        TestUtils.getVendorApiLevel() > TIRAMISU);
     testOaep("rsa_oaep_2048_sha256_mgf1sha1_test.json", false, true);
   }
 
