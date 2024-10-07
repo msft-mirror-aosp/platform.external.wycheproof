@@ -13,8 +13,10 @@
  */
 package com.google.security.wycheproof;
 
+import static android.os.Build.VERSION_CODES.TIRAMISU;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -37,6 +39,7 @@ import org.junit.Test;
 import android.security.keystore.KeyProtection;
 import android.security.keystore.KeyProperties;
 import android.keystore.cts.util.KeyStoreUtil;
+import android.keystore.cts.util.TestUtils;
 
 /**
  * RSA encryption tests
@@ -82,7 +85,7 @@ public class RsaEncryptionTest {
     KeyFactory kf;
     kf = KeyFactory.getInstance("RSA");
     byte[] encoded = TestUtil.hexToBytes(object.get("privateKeyPkcs8").getAsString());
-    BigInteger modulus = new BigInteger(TestUtil.hexToBytes(object.get("n").getAsString()));  
+    BigInteger modulus = new BigInteger(TestUtil.hexToBytes(object.get("n").getAsString()));
     BigInteger exponent = new BigInteger(TestUtil.hexToBytes(object.get("e").getAsString()));
 
     PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(encoded);
@@ -107,7 +110,7 @@ public class RsaEncryptionTest {
    * attack depends on how much information is leaked when decrypting an invalid ciphertext.
    * The test vectors with invalid padding contain a flag "InvalidPkcs1Padding".
    * The test below expects that all test vectors with this flag throw an indistinguishable
-   * exception. 
+   * exception.
    *
    * <p><b>References:</b>
    *
@@ -215,8 +218,11 @@ public class RsaEncryptionTest {
   public void testDecryption2048() throws Exception {
     testDecryption("rsa_pkcs1_2048_test.json");
   }
+
   @Test
   public void testDecryption2048_StrongBox() throws Exception {
+    assumeTrue("If the VSR level is > T the test will run, otherwise it will be ignored.",
+        TestUtils.getVendorApiLevel() > TIRAMISU);
     KeyStoreUtil.assumeStrongBox();
     testDecryption("rsa_pkcs1_2048_test.json", true);
   }
@@ -230,4 +236,5 @@ public class RsaEncryptionTest {
   public void testDecryption4096() throws Exception {
     testDecryption("rsa_pkcs1_4096_test.json");
   }
+
 }
